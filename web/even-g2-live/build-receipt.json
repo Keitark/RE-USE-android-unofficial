@@ -1,0 +1,25 @@
+{
+  "scope": "Built official Even Hub client; controller tests are synthetic protocol tests, not real G2 capture",
+  "sdk": "0.0.16",
+  "cli": "0.2.0",
+  "vite": "8.3.5",
+  "node": "22.22.2",
+  "tests": {
+    "passed": 16,
+    "failed": 0
+  },
+  "files": {
+    "dist/assets/index-BwDDcjJk.js": {
+      "sha256": "66a2a4049f54c84b441f8f319e2c5164ec1ca5ecd68c2cc5ffb55c2cbdcc64b5",
+      "bytes": 91405
+    },
+    "dist/assets/index-CDYyIelC.css": {
+      "sha256": "76d8fc863b04e67e93011b880e4b5b868c9f8a169efd1bdb3d06b8bca62d5f20",
+      "bytes": 1782
+    },
+    "dist/index.html": {
+      "sha256": "6deae02a0cde58b7511f9112832fd47718f1b559f22cee7ffe69cd96c1c948e8",
+      "bytes": 1917
+    }
+  }
+}

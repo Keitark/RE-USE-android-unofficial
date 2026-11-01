@@ -1,0 +1,13 @@
+# CPU export/validation only. Android consumes the exported ONNX graph.
+torch==2.10.0
+numpy==2.4.6
+onnx==1.23.2
+onnxruntime==1.23.2
+safetensors==0.8.0
+soundfile==0.13.1
+scipy==1.15.3
+pytest==9.2.0
+# Only used by the independent upstream parity check:
+einops==0.8.1
+huggingface-hub==1.22.0
+PyYAML==6.0.2

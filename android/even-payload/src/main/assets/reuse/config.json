@@ -1,0 +1,5 @@
+{
+  "sample_rate": 8000,
+  "threads": 2,
+  "enabled": true
+}

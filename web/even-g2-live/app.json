@@ -1,0 +1,15 @@
+{
+  "package_id": "io.github.reuse.g2live",
+  "name": "RE-USE G2 Live",
+  "version": "0.1.0",
+  "edition": "202601",
+  "min_sdk_version": "0.0.16",
+  "min_app_version": "2.2.10",
+  "entrypoint": "index.html",
+  "permissions": [
+    { "name": "g2-microphone", "desc": "Captures the G2 glasses microphone after Start for local speech enhancement." },
+    { "name": "network", "desc": "Streams microphone PCM only to the RE-USE companion on this phone.",
+      "whitelist": ["http://127.0.0.1:8765", "ws://127.0.0.1:8765"] }
+  ],
+  "supported_languages": ["en"]
+}

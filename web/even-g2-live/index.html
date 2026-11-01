@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>RE-USE · G2 microphone</title>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">RE-USE / EVEN G2</p>
+      <h1>Live microphone</h1>
+      <p class="intro">Enhance the glasses microphone on this phone.</p>
+      <section class="card" aria-label="Capture session">
+        <div class="status-line"><span id="lamp" class="lamp"></span><strong id="state" role="status">Waiting for Even</strong></div>
+        <p id="message">Open this page inside the official Even app’s Developer Hub.</p>
+        <div class="actions"><button id="start" disabled>Start G2 microphone</button><button id="stop" class="secondary" disabled>Stop &amp; save</button></div>
+        <p class="note">Glasses only · 16 kHz mono · local processing<br />Keep this page visible. Capture stops automatically after 55 seconds.</p>
+      </section>
+      <section class="card metrics" aria-label="Stream counters">
+        <div><span>G2 input</span><strong id="input">0 samples</strong></div>
+        <div><span>Enhanced output</span><strong id="output">0 samples</strong></div>
+        <div><span>SDK callbacks</span><strong id="events">0</strong></div>
+        <div><span>Continuity</span><strong id="continuity">Waiting for audio</strong></div>
+      </section>
+      <p class="note">Raw and enhanced recordings stay in the Android companion. The enhanced output includes the filter’s final tail; its length can exceed the captured input.</p>
+      <details><summary>Session details</summary><pre id="details">No capture started.</pre></details>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

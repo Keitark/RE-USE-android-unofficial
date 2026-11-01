@@ -1,0 +1,49 @@
+plugins {
+    id 'com.android.library'
+    id 'maven-publish'
+}
+
+group = 'io.github.reuse'
+version = '0.1.0-SNAPSHOT'
+
+android {
+    namespace 'io.github.reuse.audio'
+    compileSdk 35
+    defaultConfig {
+        minSdk 26
+        ndk { abiFilters 'arm64-v8a', 'x86_64' }
+        externalNativeBuild { cmake { arguments '-DANDROID_STL=c++_static' } }
+    }
+    ndkVersion '26.1.10909125'
+    externalNativeBuild {
+        cmake { path file('../../native/live/CMakeLists.txt'); version '3.22.1' }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    publishing { singleVariant('release') { withSourcesJar() } }
+}
+
+// This library accepts PCM; microphone/UI/Even Hub/networking belong to adapters.
+dependencies { api project(':reuse') }
+
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                from components.release
+                artifactId = 'reuse-audio'
+                pom {
+                    name = 'RE-USE PCM audio sessions'
+                    description = 'Bounded PCM processing, FIR conversion and recording lifecycle. Model-specific native DSP uses NVIDIA NSCLv1; Java session API is MIT. See repository notices.'
+                    licenses {
+                        license { name = 'MIT (Java session API)'; url = 'https://opensource.org/license/mit/' }
+                        license { name = 'NVIDIA NSCLv1 (model-specific native DSP)'; url = 'https://github.com/NVlabs/HMAR/blob/main/LICENSE' }
+                    }
+                }
+            }
+        }
+        repositories { maven { url = uri(rootProject.layout.buildDirectory.dir('repository')) } }
+    }
+}

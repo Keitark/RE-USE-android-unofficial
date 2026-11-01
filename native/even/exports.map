@@ -1,0 +1,7 @@
+{
+  global:
+    lc3_setup_decoder;
+    lc3_decode;
+    Java_io_github_reuse_even_ReuseBridge_*;
+  local: *;
+};

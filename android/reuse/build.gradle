@@ -1,0 +1,79 @@
+plugins {
+    id 'com.android.library'
+    id 'maven-publish'
+}
+
+group = 'io.github.reuse'
+version = '0.1.0-SNAPSHOT'
+
+// Optional ARM opcode candidates. Packaged performance receipts record the
+// selected flags; omitted properties retain the original arithmetic paths.
+def reuseNeonFma = providers.gradleProperty('reuseNeonFma').getOrElse('false')
+def reuseScanRegisters = providers.gradleProperty('reuseScanN16Registers').getOrElse('false')
+if (!(reuseNeonFma in ['true', 'false']) || !(reuseScanRegisters in ['true', 'false'])) {
+    throw new GradleException('RE-USE opcode properties must be true or false')
+}
+
+android {
+    namespace 'io.github.reuse'
+    compileSdk 35
+    defaultConfig {
+        minSdk 26
+        consumerProguardFiles 'consumer-rules.pro'
+        ndk { abiFilters 'arm64-v8a', 'x86_64' }
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_static',
+                        "-DREUSE_NEON_FMA=${reuseNeonFma == 'true' ? 'ON' : 'OFF'}",
+                        "-DREUSE_SCAN_N16_REGISTERS=${reuseScanRegisters == 'true' ? 'ON' : 'OFF'}"
+            }
+        }
+    }
+    ndkVersion '26.1.10909125'
+    externalNativeBuild {
+        cmake {
+            path file('../../native/CMakeLists.txt')
+            version '3.22.1'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    testOptions { unitTests.returnDefaultValues = false }
+    publishing { singleVariant('release') { withSourcesJar() } }
+}
+
+dependencies {
+    api 'com.microsoft.onnxruntime:onnxruntime-android:1.23.2'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                from components.release
+                artifactId = 'reuse-android'
+                pom {
+                    name = 'RE-USE Android'
+                    description = 'Stateful speech enhancement. Java API/DSP: MIT. Bundled native SelectiveScan: NVIDIA NSCLv1 (noncommercial); see packaged license notices.'
+                    licenses {
+                        license {
+                            name = 'MIT (Java API, DSP and ONNX Runtime API headers)'
+                            url = 'https://opensource.org/license/mit/'
+                            distribution = 'repo'
+                        }
+                        license {
+                            name = 'NVIDIA NSCLv1 (native SelectiveScan component; noncommercial)'
+                            url = 'https://github.com/NVlabs/HMAR/blob/main/LICENSE'
+                            distribution = 'repo'
+                        }
+                    }
+                }
+            }
+        }
+        repositories { maven { url = uri(rootProject.layout.buildDirectory.dir('repository')) } }
+    }
+}

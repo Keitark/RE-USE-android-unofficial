@@ -1,0 +1,23 @@
+{
+  "format_version": 1,
+  "package": "com.even.sg",
+  "version_name": "2.4.0",
+  "version_code": 246,
+  "source": "Official Google Play installation copied read-only from isolated emulator; original app not launched",
+  "signer_sha256": "f1ff544cfa3112ab594a1591283d239b4b202496bf7ba03295a77a1f00bba779",
+  "base_apk": "base.apk",
+  "arm64_split": "split_config.arm64_v8a.apk",
+  "dex_count": 5,
+  "apks": {
+    "base.apk": "b7a12016278dddfd511ec88a31a05f05e2cf7812225818e447d75794b120283d",
+    "split_config.arm64_v8a.apk": "1be56195f98a616bd23e829050af6604f7be082c7d7d491e8dbc7e5cc954ef6e",
+    "split_config.en.apk": "3042048f8c29a8b2013284ef0df693279cca6e937eb3ea70fe4196abccede2f7",
+    "split_config.ja.apk": "ad402740ee9e749a67827bdd524f57bcc153e66fe818256a2a078c0d538944ee",
+    "split_config.xxxhdpi.apk": "9e1ebec2742ce5bd3461702c4024d3e27f20e2f50cadfefe035423557f798fc8"
+  },
+  "native": {
+    "lib/arm64-v8a/liblc3.so": "8176f80ed7077cb4c04b7853539bc0bad2f8ae10be34a7467e875b9e40b7d67d",
+    "lib/arm64-v8a/libapp.so": "931fc100cd061402c2d91c6c4d9d1f1acb2fa07d1fe85d4d0e7a43633cf3f3a8",
+    "lib/arm64-v8a/libonnxruntime.so": "f9aefe58b331128fd33366f8c81218fe6dd5da5028a54438e5b301b23cb2f6ad"
+  }
+}

@@ -1,0 +1,25 @@
+RE-USE Android is an unofficial integration, not an NVIDIA product.
+
+Java API and streaming DSP code:
+Copyright (c) 2026 RE-USE Android contributors. MIT licensed.
+See Java-MIT.txt.
+
+Optional native SelectiveScan component (libreuse_ort_ops.so):
+This implementation is derived from NVIDIA Real-time RE-USE and is governed
+by NVIDIA NSCLv1, including its noncommercial restrictions. It is not covered
+by the Java code's MIT grant. See NVIDIA-NSCLv1.txt.
+Original work: Copyright (c) 2025 NVIDIA CORPORATION. All rights reserved.
+Integration: Copyright (c) 2026 RE-USE contributors.
+Source: https://huggingface.co/nvidia/Real-time_RE-USE
+Pinned revision: 4c0c186272ca853cd18d832fc5c28777b62f32d1
+
+No model weights are bundled in this AAR. Exported streaming models retain
+their NVIDIA NSCLv1 terms. The newer commercially usable, noncausal 9.6M
+checkpoint is a different model and cannot replace the streaming checkpoint.
+
+ONNX Runtime 1.23.2 API headers: Microsoft MIT license; see ONNXRuntime-MIT.txt.
+The ONNX Runtime Android dependency is resolved separately by Gradle and
+retains its own distributed licenses and third-party notices.
+
+The native plugin statically links the Android NDK 26.1 C++ runtime. Its
+upstream LLVM/libc++/libc++abi notices are retained in NDK-toolchain-NOTICE.txt.

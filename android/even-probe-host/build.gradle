@@ -1,0 +1,80 @@
+plugins { id 'com.android.application' }
+
+def harnessRoot = rootProject.file('.research/even-harness')
+def sourceBase = rootProject.file(providers.gradleProperty('evenProbeBase').getOrElse('dist/even-reuse-fast8k/base.apk'))
+def sourceSplit = rootProject.file(providers.gradleProperty('evenProbeSplit').getOrElse('dist/even-reuse-fast8k/split_config.arm64_v8a.apk'))
+def originalSplit = rootProject.file('.research/even-play-2.4.0/split_config.arm64_v8a.apk')
+def originalOrt = rootProject.file('.research/even-play-2.4.0/native-original/libonnxruntime.so')
+def shimOverrideProperty = providers.gradleProperty('evenProbeShim').getOrNull()
+def shimOverride = shimOverrideProperty == null ? null : rootProject.file(shimOverrideProperty)
+def customOpOverrideProperty = providers.gradleProperty('evenProbeCustomOp').getOrNull()
+def customOpOverride = customOpOverrideProperty == null ? null : rootProject.file(customOpOverrideProperty)
+def model8OverrideProperty = providers.gradleProperty('evenProbeModel8').getOrNull()
+def model16OverrideProperty = providers.gradleProperty('evenProbeModel16').getOrNull()
+def runtimeProfileProperty = providers.gradleProperty('evenProbeRuntimeProfile').getOrNull()
+def model8Directory = rootProject.file(model8OverrideProperty ?: 'models/reuse-8k-exit3-native')
+def model16Directory = rootProject.file(model16OverrideProperty ?: 'models/reuse-16k-exit3-native')
+def pythonWindows = rootProject.file('.venv/Scripts/python.exe')
+def pythonUnix = rootProject.file('.venv/bin/python')
+
+tasks.register('prepareProbeInputs', Exec) {
+    inputs.property('model8OverrideSelection', model8OverrideProperty ?: '<default>')
+    inputs.property('model16OverrideSelection', model16OverrideProperty ?: '<default>')
+    inputs.property('customOpOverrideSelection', customOpOverrideProperty ?: '<default>')
+    inputs.property('runtimeProfileSelection', runtimeProfileProperty == null ? '<unchanged>' : runtimeProfileProperty)
+    inputs.files(file('prepare_inputs.py'), sourceBase, sourceSplit, originalSplit, originalOrt,
+            rootProject.file('LICENSE'), rootProject.file('native/include/LICENSE'))
+    [model8Directory, model16Directory].each { modelDir ->
+        inputs.files(new File(modelDir, 'model.onnx'), new File(modelDir, 'manifest.json'), new File(modelDir, 'LICENSE-NVIDIA.txt'))
+    }
+    if (shimOverride != null) inputs.file(shimOverride)
+    if (customOpOverride != null) inputs.file(customOpOverride)
+    outputs.dir(harnessRoot)
+    commandLine (pythonWindows.exists() ? pythonWindows.absolutePath :
+            (pythonUnix.exists() ? pythonUnix.absolutePath : 'python')),
+            file('prepare_inputs.py').absolutePath,
+            '--base', sourceBase.absolutePath,
+            '--split', sourceSplit.absolutePath,
+            '--original-split', originalSplit.absolutePath,
+            '--ort-library', originalOrt.absolutePath,
+            '--output', harnessRoot.absolutePath
+    if (shimOverride != null) args '--shim-override', shimOverride.absolutePath
+    if (customOpOverride != null) args '--custom-op-override', customOpOverride.absolutePath
+    if (model8OverrideProperty != null) args '--model8', model8Directory.absolutePath
+    if (model16OverrideProperty != null) args '--model16', model16Directory.absolutePath
+    if (runtimeProfileProperty != null) args '--runtime-profile', runtimeProfileProperty
+}
+
+android {
+    namespace 'io.github.reuse.evenprobe'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'io.github.reuse.evenprobe'
+        minSdk 28
+        targetSdk 35
+        multiDexEnabled false
+        versionCode 1
+        versionName '0.1.0'
+        ndk { abiFilters 'arm64-v8a' }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    sourceSets {
+        main {
+            java.srcDirs = [rootProject.file('android/even-payload/src/main/java')]
+            assets.srcDirs = [new File(harnessRoot, 'assets')]
+            jniLibs.srcDirs = [new File(harnessRoot, 'jniLibs')]
+        }
+    }
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+            keepDebugSymbols += ['**/*.so']
+        }
+    }
+    buildTypes { release { minifyEnabled false } }
+}
+
+tasks.named('preBuild').configure { dependsOn 'prepareProbeInputs' }

@@ -1,0 +1,20 @@
+pluginManagement {
+    repositories { google(); mavenCentral(); gradlePluginPortal() }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories { google(); mavenCentral() }
+}
+rootProject.name = 'reuse-android'
+include ':reuse', ':benchmark'
+include ':even-payload'
+include ':even-probe-host'
+include ':live-companion'
+include ':reuse-audio', ':phone-demo'
+project(':reuse').projectDir = file('android/reuse')
+project(':benchmark').projectDir = file('android/benchmark')
+project(':even-payload').projectDir = file('android/even-payload')
+project(':even-probe-host').projectDir = file('android/even-probe-host')
+project(':live-companion').projectDir = file('android/live-companion')
+project(':reuse-audio').projectDir = file('android/reuse-audio')
+project(':phone-demo').projectDir = file('android/phone-demo')

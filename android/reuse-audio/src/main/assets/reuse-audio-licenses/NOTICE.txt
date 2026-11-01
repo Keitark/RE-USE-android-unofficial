@@ -1,0 +1,6 @@
+RE-USE PCM session Java API: MIT.
+The JNI FIR bridge includes native/even/dsp.hpp, governed by NVIDIA NSCLv1 for noncommercial research and educational use.
+Original model work: Copyright (c) 2025 NVIDIA CORPORATION. All rights reserved.
+Integration: Copyright (c) 2026 RE-USE Android contributors.
+The native component statically links Android NDK C++ runtime; retained notices accompany this file.
+No model weights are included in this AAR.

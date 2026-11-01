@@ -1,0 +1,52 @@
+plugins { id 'com.android.application' }
+
+def modelSource = rootProject.file('models/reuse-8k-exit3-native-chunk5-sequence-pad-softplus-temporal-channelnorm-frequency')
+def webSource = rootProject.file('web/even-g2-live/dist')
+def generatedAssets = layout.buildDirectory.dir('generated/liveAssets')
+def copyLiveAssets = tasks.register('copyLiveAssets', Sync) {
+    inputs.dir(modelSource)
+    inputs.dir(webSource)
+    into(generatedAssets)
+    from(modelSource) {
+        include 'model.onnx', 'manifest.json', 'LICENSE-NVIDIA.txt'
+        into 'model'
+    }
+    from(webSource) { into 'web' }
+    doFirst {
+        if (!new File(webSource, 'index.html').isFile()) {
+            throw new GradleException('Build web/even-g2-live first; its dist/index.html is required.')
+        }
+    }
+}
+
+android {
+    namespace 'io.github.reuse.live'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'io.github.reuse.live'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.0'
+        ndk { abiFilters 'arm64-v8a', 'x86_64' }
+    }
+    sourceSets { main { assets.srcDir generatedAssets } }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    testOptions { unitTests.returnDefaultValues = false }
+    buildTypes { release { minifyEnabled false } }
+    packaging { jniLibs { useLegacyPackaging = true } }
+}
+
+tasks.named('preBuild').configure { dependsOn(copyLiveAssets) }
+
+dependencies {
+    implementation project(':reuse-audio')
+    // Pinned upstream tag/API: NanoHttpd/nanohttpd nanohttpd-project-2.3.1.
+    implementation 'org.nanohttpd:nanohttpd-websocket:2.3.1'
+    implementation 'com.google.zxing:core:3.5.3'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+}

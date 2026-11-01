@@ -1,0 +1,17 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:name="android.app.Application"
+                 android:label="RE-USE ARM64 research probe"
+                 android:allowBackup="false"
+                 android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <provider android:name="io.github.reuse.even.ReuseInitProvider"
+                  android:authorities="${applicationId}.reuse.init"
+                  android:exported="false" android:initOrder="100" />
+        <activity android:name="io.github.reuse.even.ReuseProbeActivity"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

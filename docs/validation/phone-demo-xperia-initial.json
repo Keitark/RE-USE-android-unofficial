@@ -1,0 +1,120 @@
+{
+  "schema": "reuse.phone-demo-validation.v1",
+  "date_local": "2026-11-01",
+  "device_model": "Sony Xperia 1 IV (SO-51C)",
+  "scope": "Two user-started ordinary built-in microphone captures; metadata, count, timing and WAV-header verification; voice content is not published",
+  "tested_apk_sha256": "c8a272a805b8026a63a52bb4b0096b800533551c2f90f28b7fc982be8ee33bdd",
+  "model_sha256": "f950dcfb9321191b2bcb3ab9afa3e100c40e5c64dd1de1d30849be4c1aacce32",
+  "installed_apk_hash_verified": true,
+  "checks": {
+    "host_jni_session_cases": 10,
+    "model_preparation_cases": 15,
+    "existing_g2_jvm_cases": 12,
+    "phone_assemble_passed": true,
+    "phone_lint_errors": 0,
+    "phone_lint_warnings": 21
+  },
+  "captures": [
+    {
+      "capture_seconds": 9.62,
+      "threads": 4,
+      "source": "android_audio_record",
+      "route": "Built-in microphone",
+      "sample_rate": 16000,
+      "microphone_released": true,
+      "stop_reason": "user_stop",
+      "statistics": {
+        "state": "FINISHED",
+        "input_samples": 153920,
+        "processed_input_samples": 153920,
+        "output_samples": 154108,
+        "dropped_input_samples": 0,
+        "queue_overflows": 0,
+        "sequence_gaps": 0,
+        "model_calls": 97,
+        "process_mean_ms": 55.32172573195876,
+        "process_p95_ms": 65.280886,
+        "process_max_ms": 71.57198,
+        "processing_rtf": 0.5768803646569647,
+        "deadline_misses": 0,
+        "max_queue_samples": 800,
+        "queue_age_max_ms": 13.593229,
+        "flush_calls": 1,
+        "pending_model_samples": 0
+      },
+      "wave_files": {
+        "raw.wav": {
+          "samples": 153920,
+          "bytes": 307884,
+          "header_verified": true
+        },
+        "enhanced.wav": {
+          "samples": 154108,
+          "bytes": 308260,
+          "header_verified": true
+        }
+      },
+      "output_trace": {
+        "complete": true,
+        "events": 98,
+        "contiguous_output_sample_indices": true,
+        "first_callback_relative_capture_start_ms": 225.628854,
+        "minimum_startup_ms_for_ideal_continuous_consumer_from_this_trace": 255.76140300000043,
+        "scope": "Offline timing bound only; not Android AudioTrack playout or measured speaker underruns"
+      }
+    },
+    {
+      "capture_seconds": 5.7,
+      "threads": 4,
+      "source": "android_audio_record",
+      "route": "Built-in microphone",
+      "sample_rate": 16000,
+      "microphone_released": true,
+      "stop_reason": "user_stop",
+      "statistics": {
+        "state": "FINISHED",
+        "input_samples": 91200,
+        "processed_input_samples": 91200,
+        "output_samples": 91388,
+        "dropped_input_samples": 0,
+        "queue_overflows": 0,
+        "sequence_gaps": 0,
+        "model_calls": 58,
+        "process_mean_ms": 56.798500293103444,
+        "process_p95_ms": 67.208177,
+        "process_max_ms": 68.334427,
+        "processing_rtf": 0.5969712633333333,
+        "deadline_misses": 0,
+        "max_queue_samples": 800,
+        "queue_age_max_ms": 11.322031,
+        "flush_calls": 1,
+        "pending_model_samples": 0
+      },
+      "wave_files": {
+        "raw.wav": {
+          "samples": 91200,
+          "bytes": 182444,
+          "header_verified": true
+        },
+        "enhanced.wav": {
+          "samples": 91388,
+          "bytes": 182820,
+          "header_verified": true
+        }
+      },
+      "output_trace": {
+        "complete": true,
+        "events": 59,
+        "contiguous_output_sample_indices": true,
+        "first_callback_relative_capture_start_ms": 190.169218,
+        "minimum_startup_ms_for_ideal_continuous_consumer_from_this_trace": 256.67536199999995,
+        "scope": "Offline timing bound only; not Android AudioTrack playout or measured speaker underruns"
+      }
+    }
+  ],
+  "audio_track_playout_verified": false,
+  "audio_track_underruns_verified": false,
+  "hardware_gap_free_verified": false,
+  "long_duration_thermal_acceptance": false,
+  "passed": true
+}

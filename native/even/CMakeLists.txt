@@ -1,0 +1,26 @@
+cmake_minimum_required(VERSION 3.22)
+project(even_reuse_interposer LANGUAGES CXX)
+if(NOT ANDROID)
+  message(FATAL_ERROR "This experimental LC3 interposer targets Android only")
+endif()
+set(REUSE_ORIGINAL_LCO "" CACHE FILEPATH "Real original LC3 library already patched to SONAME liblco.so")
+if(REUSE_ORIGINAL_LCO)
+  add_library(lco_dependency SHARED IMPORTED)
+  set_target_properties(lco_dependency PROPERTIES IMPORTED_LOCATION "${REUSE_ORIGINAL_LCO}")
+else()
+  # Link metadata only. NEVER package this stub: the APK must contain the real
+  # original codec renamed/patched to liblco.so instead.
+  add_library(lco_dependency SHARED dependency_stub.cpp)
+  set_target_properties(lco_dependency PROPERTIES OUTPUT_NAME lco
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/LINK_ONLY_NEVER_PACKAGE")
+endif()
+add_library(even_reuse_lc3 SHARED interposer.cpp)
+set_target_properties(even_reuse_lc3 PROPERTIES OUTPUT_NAME lc3)
+target_compile_features(even_reuse_lc3 PRIVATE cxx_std_17)
+target_include_directories(even_reuse_lc3 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../include")
+target_compile_definitions(even_reuse_lc3 PRIVATE ORT_API_MANUAL_INIT)
+target_compile_options(even_reuse_lc3 PRIVATE -O3 -Wall -Wextra -fvisibility=hidden)
+target_link_options(even_reuse_lc3 PRIVATE "-Wl,-z,max-page-size=16384"
+  "-Wl,--version-script,${CMAKE_CURRENT_SOURCE_DIR}/exports.map")
+set_property(TARGET even_reuse_lc3 APPEND PROPERTY LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/exports.map")
+target_link_libraries(even_reuse_lc3 PRIVATE "-Wl,--no-as-needed" lco_dependency "-Wl,--as-needed" dl log)
