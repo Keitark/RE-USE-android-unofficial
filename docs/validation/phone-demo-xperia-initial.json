@@ -12,7 +12,10 @@
     "existing_g2_jvm_cases": 12,
     "phone_assemble_passed": true,
     "phone_lint_errors": 0,
-    "phone_lint_warnings": 21
+    "phone_lint_warnings": 21,
+    "core_jvm_tests": 29,
+    "published_maven_only_consumer_compile_passed": true,
+    "model_preparation_from_published_apk_passed": true
   },
   "captures": [
     {
@@ -116,5 +119,15 @@
   "audio_track_underruns_verified": false,
   "hardware_gap_free_verified": false,
   "long_duration_thermal_acceptance": false,
-  "passed": true
+  "passed": true,
+  "published_artifacts": {
+    "reuse-phone-demo.apk": "6a63476bf16c928a080660b1ce37bb56a8f59b508d91d88a35ffdaf8d2de35a6",
+    "reuse-release.aar": "127156aadf0b4232c1f5ed445a14ff137bee8887685561926a80799636a479b7",
+    "reuse-audio-release.aar": "e11824ebc77bb0a66f5ea26b3357133e0cfd90f55e149cfbe79a263e0a727293",
+    "reuse-android-maven.zip": "ea3122b83848963ec0fa06facd98cb6822f7b2ded70cfc3afca49a4e7abf826e",
+    "NVIDIA-NSCLv1.txt": "6d1daa9c89ec421ba80fe051ac9f0dd46010d4fa4e8f4af654eb8e62f64e2ad5",
+    "Java-MIT.txt": "47d52b07c7ca40e968320578bab32e41640fd54a544ae2b5a8c31ec37e298d9e",
+    "THIRD_PARTY_NOTICES.md": "72ae3ef1ceff35935a727624791731f7b36771f48d8d8e7f64ed04390add2407"
+  },
+  "publication_change_scope": "APK rebuilt after capture tests for requested app title and complete license/attribution notices; processing algorithm unchanged. Tested APK identity remains recorded separately."
 }
