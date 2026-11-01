@@ -133,11 +133,12 @@ public final class PhoneActivity extends Activity {
         LinearLayout content = column();
         content.setPadding(dp(24), dp(24), dp(24), dp(24));
         scroll.addView(content);
-        TextView brand = label("RE-USE", 14, MINT, true);
+        TextView brand = label("RE-USE · UNOFFICIAL", 14, MINT, true);
         brand.setLetterSpacing(.18f);
         content.addView(brand);
         TextView title = label("RE-USE Android Library Demo", 30, INK, true);
         margin(content, title, 12, 0);
+        margin(content, label("Uses NVIDIA Real-time RE-USE. Not affiliated with or endorsed by NVIDIA.", 13, MUTED, false), 10, 0);
         margin(content, label("Record your voice. Compare the original with RE-USE enhancement, processed on this phone.", 16, MUTED, false), 12, 22);
 
         LinearLayout capture = card();

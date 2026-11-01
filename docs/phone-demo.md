@@ -8,8 +8,8 @@ G2 glasses, Bluetooth connection, login, or cloud audio service is required.
 ## Install and run
 
 Download `reuse-phone-demo.apk` from the
-[v0.1.0-preview1 research release](https://github.com/Keitark/reuse-android/releases/tag/v0.1.0-preview1),
-or use the [direct APK link](https://github.com/Keitark/reuse-android/releases/download/v0.1.0-preview1/reuse-phone-demo.apk).
+[v0.1.1-preview1 research release](https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.1.1-preview1),
+or use the [direct APK link](https://github.com/Keitark/RE-USE-android-unofficial/releases/download/v0.1.1-preview1/reuse-phone-demo.apk).
 Compare its SHA-256 with `SHA256SUMS` from that same release before installing.
 The build is debug-signed
 for research evaluation, not a Play Store release. Install it through Android's
@@ -19,7 +19,7 @@ package installer, or with an authorized ADB connection:
 adb install -r reuse-phone-demo.apk
 ```
 
-1. Open **RE-USE Library Demo** and choose two or four processing threads. Start
+1. Open **RE-USE Demo (Unofficial)** and choose two or four processing threads. Start
    with the default four; two can perform better on some processors.
 2. Press **Start recording** and grant microphone access. Model loading and
    warm-up happen before the microphone opens.

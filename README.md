@@ -1,72 +1,69 @@
-# RE-USE Android
+# RE-USE Android — Unofficial
 
 [![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)](docs/phone-demo.md#requirements-and-scope)
 [![64-bit ARM and x86](https://img.shields.io/badge/ABI-arm64--v8a%20%7C%20x86__64-blue)](docs/phone-demo.md#requirements-and-scope)
-[![Preview release](https://img.shields.io/badge/release-v0.1.0--preview1-blue)](https://github.com/Keitark/reuse-android/releases/tag/v0.1.0-preview1)
+[![Preview release](https://img.shields.io/badge/release-v0.1.1--preview1-blue)](https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.1.1-preview1)
 [![Noncommercial research](https://img.shields.io/badge/use-noncommercial%20research-orange)](docs/license.md)
 
-A phone-microphone demo and Android library for on-device speech enhancement
-using NVIDIA's **Real-time RE-USE** streaming checkpoint. The phone demo uses
-the ordinary Android microphone: it needs no G2 glasses, Even app, account,
-Bluetooth connection, or audio server.
+An unofficial Android integration of NVIDIA Real-time RE-USE. This project is
+not affiliated with, endorsed by, or maintained by NVIDIA.
 
-## Phone microphone demo
+**Try on-device speech enhancement with your phone's microphone.** Record,
+compare the original and enhanced audio, and share the WAV pair. No G2 glasses,
+Even app, account, or cloud audio service is required.
 
-Open **RE-USE Library Demo**, allow microphone access, and press **Start recording**.
-Speak, press **Stop & save**, then compare **Play before RE-USE** and
-**Play after RE-USE**. Captures stop automatically after 60 seconds or when you
-leave the recording screen.
-The app can share the completed WAV pair through Android's share sheet.
+[![Try the Android APK](https://img.shields.io/badge/Try%20the%20Android%20APK-Download-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Keitark/RE-USE-android-unofficial/releases/download/v0.1.1-preview1/reuse-phone-demo.apk)
 
-The demo targets Android 8.0+ and 64-bit ARM phones. An x86_64 build is also
-included for development. It processes audio on the CPU and offers two- and
-four-thread settings. Audio stays in app-private storage unless you choose
-to share it; the phone demo has no Internet permission.
+**[Demo cover page](https://keitark.github.io/RE-USE-android-unofficial/)** ·
+**[User guide](docs/phone-demo.md)** · **[Library integration](docs/library.md)** ·
+[Release & checksums](https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.1.1-preview1)
 
-[Download the v0.1.0-preview1 phone demo APK](https://github.com/Keitark/reuse-android/releases/download/v0.1.0-preview1/reuse-phone-demo.apk)
-and verify it against the release's `SHA256SUMS`. This is a debug-signed research
-preview. See the [phone demo guide](docs/phone-demo.md) for installation,
-building, microphone behavior, and timing diagnostics.
+## Quick start
 
-Two user-started recordings on a physical Xperia 1 IV used its built-in
-microphone: 9.62 seconds at RTF `0.576880` and 5.70 seconds at RTF `0.596971`.
-Both processed all received samples, with no application drops, queue
-overflows, or calls over 100 ms. These are short foreground tests; sustained
-thermal behavior and speaker playout timing have not been established.
-See the [phone-specific validation receipt](docs/validation/phone-demo-xperia-initial.json).
+1. **Install** the preview APK and open **RE-USE Demo (Unofficial)**.
+2. **Record**: allow microphone access, press **Start recording**, speak, then
+   press **Stop & save**.
+3. **Compare**: use **Play before RE-USE** and **Play after RE-USE**, or
+   **Share both WAV files**.
 
-### What “real-time” means here
+<p align="center">
+  <img src="docs/assets/phone-demo.png" width="280" alt="RE-USE · UNOFFICIAL demo screen shown in an Android emulator">
+  <br>
+  <sub>Android emulator screenshot · UI preview, not physical-device performance evidence</sub>
+</p>
 
-The app processes microphone input while recording. Whether a phone keeps up
-depends on its CPU, thermal state, and thread setting. The UI reports estimated
-processing speed and buffered audio; the saved statistics record the final
-result. A short processing overrun can be buffered. If the bounded 500 ms input
-queue fills, the app stops with an error instead of silently dropping audio or
-reporting a successful capture. No universal low-latency guarantee is claimed.
+The demo keeps audio on the phone unless you choose to share it. Recording
+stops after 60 seconds or when you leave the screen. The APK is a debug-signed
+research preview; verify it against the release's `SHA256SUMS`.
 
-### Documentation
+**Real-time scope:** two short Xperia 1 IV microphone tests processed all
+received samples without application drops. Performance depends on the device;
+this is not a universal low-latency guarantee. See the
+[measurements](docs/validation/phone-demo-xperia-initial.json) and
+[what happens if processing falls behind](docs/phone-demo.md#when-processing-cannot-keep-up).
 
-- [Phone demo: install, run, build, and diagnose overload](docs/phone-demo.md)
-- [Reusable libraries and PCM-stream integration](docs/library.md)
-- [Optional Even G2 companion and measured live test](docs/live-g2.md)
-- [Validation scope](docs/validation.md)
-- [Licensing and third-party notices](THIRD_PARTY_NOTICES.md)
-- [License boundaries and redistribution](docs/license.md)
-- [Contributing and reporting device results](CONTRIBUTING.md)
+**License:** independent Java integration/UI is MIT. The NVIDIA checkpoint,
+adapted model code, and model-specific native components are limited to
+noncommercial research and education. Read the [license boundaries](docs/license.md)
+and [third-party notices](THIRD_PARTY_NOTICES.md).
 
-The Java integration is MIT. The model, adapted inference code, and
-model-specific native kernels use NVIDIA NSCLv1 for noncommercial research and
-education. This is an unofficial research implementation.
+## Build with the libraries
 
-| Module | Responsibility |
+The demo is an adapter around reusable AARs. Both the phone app and optional G2
+companion consume the same enhancement pipeline.
+
+| Module | Role |
 |---|---|
-| `:reuse` | Core model, stateful STFT, and native ONNX operations; reusable AAR |
-| `:reuse-audio` | Bounded 16 kHz PCM session, FIR resampling, recording, and statistics; reusable AAR |
-| `:phone-demo` | Android microphone, permission, buttons, playback, and sharing |
-| `:live-companion` | Optional Even G2 / Hub transport application |
+| `:reuse` | Core model, stateful STFT, and native ONNX operations |
+| `:reuse-audio` | Bounded PCM sessions, resampling, recording, and statistics |
+| `:phone-demo` | Ordinary Android microphone, UI, playback, and sharing |
+| `:live-companion` | Optional Even G2 / Hub transport |
 
-Both applications consume the shared libraries. The libraries have no
-dependency on the phone demo, Even app, or G2 transport.
+Start with the [library guide](docs/library.md),
+[phone build instructions](docs/phone-demo.md#build-from-source), or
+[contribution guide](CONTRIBUTING.md). The earlier
+[G2 companion](docs/live-g2.md) and [validation history](docs/validation.md)
+remain documented separately.
 
 ## Library and earlier G2 research
 
