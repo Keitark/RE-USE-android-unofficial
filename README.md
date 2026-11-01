@@ -47,6 +47,46 @@ adapted model code, and model-specific native components are limited to
 noncommercial research and education. Read the [license boundaries](docs/license.md)
 and [third-party notices](THIRD_PARTY_NOTICES.md).
 
+## Original settings and Android demo comparison
+
+The demo uses NVIDIA's **Real-time RE-USE streaming checkpoint**. Its original
+configuration already supports **8 kHz**; this project selects that existing
+mode and ports it to Android. The table compares the upstream streaming
+options/example with the model bundled in the current phone demo.
+
+| Parameter | Original Real-time RE-USE | Current Android phone demo |
+|---|---|---|
+| Model sample rate | 8 kHz base configuration; supports multiple input rates, including 16 kHz | Fixed 8 kHz enhancement graph |
+| Audio input / output | Input-rate-dependent audio processing | 16 kHz mono PCM16, downsampled to 8 kHz before enhancement and upsampled afterward |
+| Exit depth | Selectable exits 3–12; upstream streaming example selects exit 8 | Exit 3: first three Mamba blocks and their trained decoder pair |
+| Active model parameters | Depends on the selected exit; the checkpoint also stores unused branches and exit decoders | **1,823,555** active parameters |
+| Neural look-ahead | Selectable 0–2 frames; upstream example selects 0 | **0 frames** |
+| STFT window / FFT | 40 ms: 320 samples at 8 kHz, 640 at 16 kHz | 40 ms / 320 samples |
+| Internal hop | 20 ms: 160 samples at 8 kHz, 320 at 16 kHz | 20 ms / 160 samples |
+| Hops per inference call | One frame at a time in the streaming example | Five chronological hops: **100 ms / 800 samples** |
+| Additional chunk collection delay | One-hop dispatch | Up to **80 ms** beyond one-hop dispatch; computation and other buffering are additional |
+| Execution backend | PyTorch/CUDA-oriented implementation | ONNX Runtime CPU with fused native operations and ARM64 NEON optimization |
+| Trained weights / precision | Original trained FP32 checkpoint | Same selected trained weights, FP32; no retraining or quantization |
+
+The main quality/cost choices are **8 kHz bandwidth and exit 3**. Useful audio
+bandwidth is below 4 kHz; saving at 16 kHz does not restore the removed high
+frequencies. Choosing a deeper exit is a separate quality/compute trade-off.
+Native fusions preserve the selected network within tested numerical
+tolerances, with small floating-point differences. They process every hop;
+parity checks do not establish equal perceptual quality to deeper exits or
+wider-band operation. Zero neural look-ahead does not imply zero pipeline
+latency. The live frontend also uses causal zero padding at stream start and
+explicit final flushing; its boundary convention differs from the upstream
+offline demo's reflected padding.
+
+Sources: NVIDIA's pinned [configuration](https://huggingface.co/nvidia/Real-time_RE-USE/blob/4c0c186272ca853cd18d832fc5c28777b62f32d1/config.json),
+[streaming example](https://huggingface.co/nvidia/Real-time_RE-USE/blob/4c0c186272ca853cd18d832fc5c28777b62f32d1/online_inference.sh),
+and [model card](https://huggingface.co/nvidia/Real-time_RE-USE/blob/4c0c186272ca853cd18d832fc5c28777b62f32d1/README.md);
+the [source lock](tools/source-lock.json), [Android signal/model contract](docs/architecture.md),
+and [phone demo configuration](docs/phone-demo.md#requirements-and-scope).
+The advertised [9.6M NemotronLabs RE-USE](https://huggingface.co/nvidia/NVIDIA-NemotronLabs-RE-USE)
+is a separate noncausal model, not the checkpoint used by this demo.
+
 ## Build with the libraries
 
 The demo is an adapter around reusable AARs. Both the phone app and optional G2
