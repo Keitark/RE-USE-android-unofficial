@@ -100,8 +100,14 @@ function Save-Metadata {
         if ($stat.ExitCode -ne 0) { continue }
         $stamp = $utf8.GetString($stat.Bytes).Trim()
         if ($stamp -notmatch '^(?<size>[0-9]+):') { continue }
-        if ([long]$Matches.size -gt 32 * 1024 * 1024) { throw 'A JSON diagnostic exceeds the 32 MiB per-file limit.' }
+        $remoteSize = [long]$Matches.size
+        if ($remoteSize -gt 32 * 1024 * 1024) { throw 'A JSON diagnostic exceeds the 32 MiB per-file limit.' }
         if ($remoteStamps[$remote] -eq $stamp) { continue }
+        $target = Get-CapturePath (Join-Path $session $name)
+        $previousSize = if (Test-Path -LiteralPath $target) { (Get-Item -LiteralPath $target).Length } else { 0 }
+        if ((Get-CaptureBytes) - $previousSize + $remoteSize -ge $budget) {
+            $state.last_error = 'Capture budget prevents transferring another diagnostic.'; continue
+        }
         $result = Invoke-Adb @('exec-out', 'run-as', $PackageId, 'cat', '--', $remote)
         if ($result.ExitCode -ne 0) { continue }
         if ($result.Bytes.Length -gt 32 * 1024 * 1024) { throw 'A JSON diagnostic exceeds the 32 MiB per-file limit.' }
@@ -111,8 +117,6 @@ function Save-Metadata {
         $hasher = [Security.Cryptography.SHA256]::Create()
         try { $hash = [Convert]::ToBase64String($hasher.ComputeHash($result.Bytes)) } finally { $hasher.Dispose() }
         if ($fingerprints[$remote] -eq $hash) { $remoteStamps[$remote] = $stamp; continue }
-        $target = Get-CapturePath (Join-Path $session $name)
-        $previousSize = if (Test-Path -LiteralPath $target) { (Get-Item -LiteralPath $target).Length } else { 0 }
         if ((Get-CaptureBytes) - $previousSize + $result.Bytes.Length -ge $budget) {
             $state.last_error = 'Capture budget prevents copying another diagnostic.'; continue
         }
