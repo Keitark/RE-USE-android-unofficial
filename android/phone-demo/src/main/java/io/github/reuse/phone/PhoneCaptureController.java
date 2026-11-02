@@ -27,6 +27,7 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -34,6 +35,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 import org.json.JSONObject;
 
 /** Visible-activity capture; no network, Bluetooth, global routing changes or speaker monitoring. */
@@ -76,15 +78,19 @@ public final class PhoneCaptureController implements AutoCloseable {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Object lock = new Object();
     private final ExecutorService preparation = Executors.newSingleThreadExecutor(r -> new Thread(r, "reuse-phone-prepare"));
+    private final ExecutorService gpuProbe = Executors.newSingleThreadExecutor(r -> new Thread(r, "reuse-phone-gpu-probe"));
     private volatile boolean closed;
     private Run active;
     private volatile File latestDirectory;
     private volatile File latestDiagnosticsDirectory;
+    private volatile GpuAvailability gpuAvailability;
+    private volatile File gpuProbeDiagnosticsDirectory;
 
     private static final class Run {
         final int threads;
         final boolean gpuRequested, fp16Requested;
         volatile String runtimeBuildInfo = "not_read";
+        volatile GpuAvailability availability;
         final Path directory;
         final Object recorderLock = new Object();
         volatile EnhancementSession session;
@@ -120,6 +126,59 @@ public final class PhoneCaptureController implements AutoCloseable {
     public boolean isActive() { synchronized (lock) { return active != null; } }
     public File latestDir() { return latestDirectory; }
     public File diagnosticsDir() { return latestDiagnosticsDirectory; }
+    public File gpuProbeDiagnosticsDir() { return gpuProbeDiagnosticsDirectory; }
+
+    /** Background driver enumeration only; never opens the microphone or runs the model. */
+    public void probeGpuAvailability(Consumer<GpuAvailability> callback) {
+        if (callback == null) throw new IllegalArgumentException("A GPU probe callback is required");
+        synchronized (lock) {
+            if (closed) return;
+            gpuProbe.execute(() -> {
+                String runtime = "not_read";
+                GpuAvailability result;
+                try {
+                    if (!BuildConfig.GPU_EXPERIMENTAL || Build.VERSION.SDK_INT < 29)
+                        throw new IllegalStateException("GPU preview requires its API29+ experimental runtime");
+                    runtime = RuntimeBuildInfo.read();
+                    result = GpuAvailability.fromDevices(runtime, RuntimeBuildInfo.nnapiDevices());
+                } catch (Exception | LinkageError error) {
+                    result = GpuAvailability.unavailable("GPU check unavailable. CPU mode is available; details are saved in diagnostics.",
+                            error.toString(), runtime);
+                }
+                gpuAvailability = result;
+                saveProbeDiagnostics(result);
+                GpuAvailability completed = result;
+                main.post(() -> { if (!closed) callback.accept(completed); });
+            });
+        }
+    }
+
+    private void saveProbeDiagnostics(GpuAvailability result) {
+        try {
+            String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(new Date());
+            Path directory = context.getFilesDir().toPath().resolve("captures")
+                    .resolve(stamp + "-" + UUID.randomUUID().toString().substring(0, 8));
+            Files.createDirectories(directory);
+            Map<String, Object> probe = new LinkedHashMap<>();
+            probe.put("source", "nnapi_device_probe"); probe.put("microphone_started", false);
+            probe.put("app_version", BuildConfig.VERSION_NAME); probe.put("model_sha256", MODEL_SHA);
+            probe.put("gpu_driver_available", result.available); probe.put("message", result.message);
+            probe.put("nnapi_device_descriptions", Arrays.asList(result.deviceDescriptions()));
+            probe.put("ort_runtime_build_info", result.runtimeBuildInfo); probe.put("error", result.error);
+            probe.put("gpu_execution_verified", false); probe.put("gpu_speedup_measured", false);
+            byte[] json = (new JSONObject(probe).toString(2) + "\n").getBytes(StandardCharsets.UTF_8);
+            Files.write(directory.resolve("stats.json"), json);
+            Files.write(directory.resolve("phone-capture.json"), json);
+            Files.write(directory.resolve("gpu-probe.json"), json);
+            synchronized (lock) {
+                gpuProbeDiagnosticsDirectory = directory.toFile();
+                // A slow probe must not replace a completed recording's diagnostics.
+                if (latestDiagnosticsDirectory == null) latestDiagnosticsDirectory = directory.toFile();
+            }
+        } catch (Exception error) {
+            android.util.Log.w("ReuseGpuPreview", "Could not save GPU driver probe diagnostics", error);
+        }
+    }
 
     public void start(int threads) {
         start(threads, false, false);
@@ -177,10 +236,13 @@ public final class PhoneCaptureController implements AutoCloseable {
             Path custom = new File(context.getApplicationInfo().nativeLibraryDir, "libreuse_ort_ops.so").toPath();
             if (!Files.isRegularFile(custom)) throw new IOException("The RE-USE native library is unavailable for this device");
             if (BuildConfig.GPU_EXPERIMENTAL) {
+                run.availability = gpuAvailability;
                 try { run.runtimeBuildInfo = RuntimeBuildInfo.read(); }
                 catch (LinkageError error) { throw new IOException("Could not load the GPU runtime provenance bridge", error); }
                 if (run.gpuRequested && !run.runtimeBuildInfo.contains("REUSE_NNAPI_GPU_ONLY_V1"))
                     throw new IOException("GPU mode refused: the loaded runtime does not have the GPU-only device filter");
+                if (run.gpuRequested && run.availability != null && !run.availability.available)
+                    throw new IOException(run.availability.message);
             }
             Files.createDirectories(run.directory);
             EnhancementSession session = new EnhancementSession(model, run.directory, custom,
@@ -386,6 +448,7 @@ public final class PhoneCaptureController implements AutoCloseable {
                 if (capture.isAlive()) throw new IOException("Microphone worker did not stop; capture cannot be marked complete");
             } else run.microphoneReleased = true;
             if (error == null) error = run.captureError;
+            if (run.availability == null) run.availability = gpuAvailability;
             Map<String, Object> phone = captureMetadata(run, engineStats, error == null);
             phone.put("error", error == null ? "" : error);
             Map<String, Object> stats = new LinkedHashMap<>(engineStats);
@@ -395,8 +458,10 @@ public final class PhoneCaptureController implements AutoCloseable {
                     (new JSONObject(phone).toString(2) + "\n").getBytes(StandardCharsets.UTF_8));
             Files.write(run.directory.resolve("stats.json"),
                     (new JSONObject(stats).toString(2) + "\n").getBytes(StandardCharsets.UTF_8));
-            latestDiagnosticsDirectory = run.directory.toFile();
-            synchronized (lock) { if (active == run) active = null; }
+            synchronized (lock) {
+                latestDiagnosticsDirectory = run.directory.toFile();
+                if (active == run) active = null;
+            }
             if (error != null) { publish(run, "ERROR", "Recording stopped: " + error, false); postError(error); }
             else if (run.samples == 0) publish(run, "IDLE", "Stopped before the microphone opened.", false);
             else {
@@ -416,6 +481,12 @@ public final class PhoneCaptureController implements AutoCloseable {
         s.put("requested_sample_rate", RATE); s.put("actual_sample_rate", run.actualRate);
         s.put("channels", 1); s.put("encoding", "s16le"); s.put("model_threads", run.threads);
         s.put("gpu_experimental_apk", BuildConfig.GPU_EXPERIMENTAL);
+        s.put("app_version", BuildConfig.VERSION_NAME); s.put("model_sha256", MODEL_SHA);
+        if (run.availability != null) {
+            s.put("gpu_driver_available", run.availability.available);
+            s.put("nnapi_device_descriptions", Arrays.asList(run.availability.deviceDescriptions()));
+            s.put("gpu_probe_error", run.availability.error);
+        }
         s.put("gpu_requested", run.gpuRequested); s.put("fp16_relaxation_requested", run.fp16Requested);
         s.put("ort_runtime_build_info", run.runtimeBuildInfo);
         boolean gpuFilter = run.runtimeBuildInfo.contains("REUSE_NNAPI_GPU_ONLY_V1");
@@ -491,7 +562,7 @@ public final class PhoneCaptureController implements AutoCloseable {
                     (new JSONObject(phone).toString(2) + "\n").getBytes(StandardCharsets.UTF_8));
             Files.write(run.directory.resolve("stats.json"),
                     (new JSONObject(failure).toString(2) + "\n").getBytes(StandardCharsets.UTF_8));
-            latestDiagnosticsDirectory = run.directory.toFile();
+            synchronized (lock) { latestDiagnosticsDirectory = run.directory.toFile(); }
         } catch (Exception ignored) { /* Preserve the original preparation error. */ }
         synchronized (lock) { if (active == run) active = null; }
         publish(run, "ERROR", "Could not prepare recording: " + message, false); postError(message); shutdownIfClosed();
@@ -537,6 +608,7 @@ public final class PhoneCaptureController implements AutoCloseable {
     /** Destruction stops capture; work is drained rather than silently continuing in background. */
     @Override public void close() {
         synchronized (lock) { closed = true; }
+        gpuProbe.shutdown();
         stop("activity_destroyed"); shutdownIfClosed();
     }
     private void shutdownIfClosed() { synchronized (lock) { if (closed && active == null) preparation.shutdown(); } }

@@ -12,5 +12,12 @@ public final class RuntimeBuildInfo {
         return nativeRuntimeBuildInfo();
     }
 
+    /** Enumerates NNAPI device descriptors as "numeric device type\tname", without inference. */
+    public static String[] nnapiDevices() {
+        System.loadLibrary("reuse_ort_ops");
+        return nativeNnapiDevices();
+    }
+
     private static native String nativeRuntimeBuildInfo();
+    private static native String[] nativeNnapiDevices();
 }

@@ -28,8 +28,8 @@ android {
         applicationId gpuExperimental ? 'io.github.reuse.phone.gpu' : 'io.github.reuse.phone'
         minSdk (gpuExperimental ? 29 : 26)
         targetSdk 35
-        versionCode gpuExperimental ? 3 : 2
-        versionName gpuExperimental ? '0.2.0-gpu-preview1' : '0.1.1'
+        versionCode gpuExperimental ? 4 : 2
+        versionName gpuExperimental ? '0.2.0-gpu-preview2' : '0.1.1'
         manifestPlaceholders = [demoLabel: gpuExperimental ? 'RE-USE GPU Preview (Unofficial)' : 'RE-USE Demo (Unofficial)']
         buildConfigField 'boolean', 'GPU_EXPERIMENTAL', gpuExperimental.toString()
         ndk { abiFilters(*(gpuExperimental ? ['arm64-v8a'] : ['arm64-v8a', 'x86_64'])) }
@@ -48,4 +48,5 @@ tasks.named('preBuild').configure { dependsOn(copyPhoneAssets) }
 dependencies {
     implementation project(':reuse-audio')
     implementation 'androidx.core:core:1.13.1'
+    testImplementation 'junit:junit:4.13.2'
 }

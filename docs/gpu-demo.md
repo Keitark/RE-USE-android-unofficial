@@ -13,7 +13,7 @@ The experimental app is separate from the existing CPU demo:
 |---|---|
 | Launcher | RE-USE GPU Preview (Unofficial) |
 | Package | `io.github.reuse.phone.gpu` |
-| Version | `0.2.0-gpu-preview1` |
+| Version | `0.2.0-gpu-preview2` |
 | Android | Android 10 / API 29 or newer |
 | Architecture | `arm64-v8a` only |
 | Input / saved output | 16 kHz mono PCM16 |
@@ -24,6 +24,15 @@ The experimental app is separate from the existing CPU demo:
 
 The stable CPU APK and its recordings are preserved. Installing the GPU
 preview does not update or replace `io.github.reuse.phone`.
+Preview 2 updates the existing GPU-preview package in place and keeps its
+saved files. It selects CPU by default and enables the GPU choices only after
+a background device check finds an NNAPI GPU-type driver. A slow driver check
+uses a separate worker and does not hold up CPU model preparation.
+
+A user-provided Xperia screenshot from preview 1 reported no NNAPI GPU driver,
+before microphone capture began. Preview 2 makes that unsupported route clear
+and leaves CPU recording available. This change does not add a different GPU
+backend or establish successful GPU execution on that phone.
 
 ## Validation scope
 
@@ -34,10 +43,12 @@ There are no measured GPU performance results yet. The earlier Xperia CPU
 measurements in the [phone demo guide](phone-demo.md#physical-phone-validation)
 are CPU results and must not be reused as GPU results.
 
-The [build receipt](validation/gpu-preview-build.json) records successful APK
-assembly, signature and payload checks, 32 core JVM tests, 12 JNI/session host
-checks and 11 GPU-device selection contracts. Android lint completed with
-0 errors and 23 warnings. These are build/host checks, not device acceptance.
+The [preview 2 build receipt](validation/gpu-preview2-build.json) records APK
+assembly, signature and payload checks, 32 core JVM tests and 5 phone-demo JVM
+regressions for driver classification and unsupported-mode presentation. The
+[original build receipt](validation/gpu-preview-build.json) retains the shared
+JNI/session and GPU runtime selection checks. These are build/host checks,
+not successful GPU device acceptance.
 
 NNAPI was deprecated in Android 15. This is a bounded research experiment to
 evaluate GPU offload on existing devices, not a commitment to NNAPI as the
@@ -48,16 +59,18 @@ would require separate compatibility and model-port work.
 ## Install and compare
 
 Use the GPU preview APK and `SHA256SUMS` from the same
-[GPU research release](https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.2.0-gpu-preview1).
+[GPU research release](https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.2.0-gpu-preview2).
 The ordinary `reuse-phone-demo.apk` from the existing CPU release does not
 include this experimental runtime. Verify the published checksum before
 installing. The preview is debug-signed for research evaluation.
 
 1. Open **RE-USE GPU Preview (Unofficial)**. Start with CPU mode and record a
    short comparison to check microphone permission, capture, stop, and playback.
-2. Select the GPU FP32 mode and press **Start recording**. GPU compilation,
+2. If the GPU choices become enabled, select GPU FP32 and press **Start recording**. GPU compilation,
    warm-up, and accelerator verification happen before the microphone opens.
    Initial preparation may take longer than CPU model loading.
+   If the app reports GPU unavailable through NNAPI, keep CPU selected. FP16
+   uses the same driver route and cannot fix a missing GPU-type device.
 3. Keep the screen visible and speak near the phone. Press **Stop & save** and
    wait for accepted audio to finish processing. Recording also stops after
    60 seconds or when the app leaves the screen.
@@ -106,9 +119,11 @@ The separate GPU preview supplies a pinned, patched runtime:
 If GPU initialization, compilation, or verification fails, keep the error
 and use CPU mode explicitly for another capture. The app does not silently
 relabel an all-CPU run as GPU acceleration.
-Use **Share diagnostics (no audio)** to export `stats.json` and
-`phone-capture.json`, including failed-startup receipts. This works without
-USB debugging. It shares only those JSON files through Android's chooser;
+Use **Share diagnostics (no audio)** to export `stats.json`,
+`phone-capture.json`, and the latest `gpu-probe.json` when available. Driver
+enumeration is saved without opening the microphone, so the check can be
+shared even without a recording. Failed-startup receipts are retained too.
+This works without USB debugging and shares only JSON through Android's chooser;
 the separate WAV-sharing action remains available after a successful recording.
 
 For a paired, connected wireless ADB session, the PC can keep app-scoped logs:

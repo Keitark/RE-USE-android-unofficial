@@ -57,6 +57,8 @@ public final class PhoneActivity extends Activity {
     private AudioManager audioManager;
     private AudioFocusRequest playbackFocus;
     private boolean visible, destroyed, permissionStartPending, active;
+    private boolean gpuProbeComplete, gpuAvailable;
+    private String gpuAvailabilityMessage = "Checking GPU support…";
     private String phase = "IDLE";
 
     @Override public void onCreate(Bundle saved) {
@@ -97,10 +99,8 @@ public final class PhoneActivity extends Activity {
                             : "Processed and saved on this phone.");
                     performance.setText(rtf > 1 ? "Saved · processing was slower than incoming audio" : "Saved · average processing kept up");
                     performance.setTextColor(rtf > 1 ? Color.rgb(255, 198, 142) : MINT);
-                    if (backendStatus != null) backendStatus.setText(
-                            "NNAPI_ACCELERATOR".equals(statistics.get("requested_backend"))
-                                    ? "GPU driver delegation observed during warm-up · hybrid GPU + CPU"
-                                    : "CPU mode · no GPU offload requested");
+                    updateBackendStatus("NNAPI_ACCELERATOR".equals(statistics.get("requested_backend")),
+                            Boolean.TRUE.equals(statistics.get("nnapi_execution_verified")));
                 } else {
                     stateTitle.setText("No audio recorded");
                     stateDetail.setText("Tap Start recording and speak into the phone.");
@@ -113,16 +113,27 @@ public final class PhoneActivity extends Activity {
                 active = false;
                 phase = "ERROR";
                 rememberDiagnostics(controller == null ? null : controller.diagnosticsDir());
-                stateTitle.setText("Recording stopped");
-                stateDetail.setText(message == null ? "Unable to record. Please try again." : message);
-                if (backendStatus != null && gpuFp32 != null && !cpuMode.isChecked())
-                    backendStatus.setText("GPU preparation or processing failed. Select CPU to compare; audio was not silently bypassed.");
+                showFailure(message);
                 level.setProgress(0);
                 updateControls();
             }
         });
         restoreCapture();
         updateControls();
+        if (BuildConfig.GPU_EXPERIMENTAL) controller.probeGpuAvailability(result -> {
+            if (destroyed) return;
+            gpuProbeComplete = true;
+            gpuAvailable = result.available;
+            gpuAvailabilityMessage = result.message;
+            rememberDiagnostics(controller.diagnosticsDir());
+            if (!gpuAvailable && !active) cpuMode.setChecked(true);
+            if (!active) {
+                updateBackendStatus(!cpuMode.isChecked(), false);
+                if (!gpuAvailable && "IDLE".equals(phase) && latest == null)
+                    stateDetail.setText(gpuAvailabilityMessage);
+            }
+            updateControls();
+        });
     }
 
     private void buildUi() {
@@ -192,13 +203,13 @@ public final class PhoneActivity extends Activity {
             cpuMode = backendChoice("CPU · reference mode", backends);
             gpuFp32 = backendChoice("GPU + CPU · FP32", backends);
             gpuFp16 = backendChoice("GPU + CPU · allow FP16", backends);
-            gpuFp32.setChecked(true);
+            cpuMode.setChecked(true);
+            gpuFp32.setEnabled(false); gpuFp16.setEnabled(false);
             capture.addView(backends);
-            backendStatus = label("GPU requested · startup checks run before recording", 13, MUTED, false);
+            backendStatus = label("CPU mode is available · checking GPU support…", 13, MUTED, false);
             margin(capture, backendStatus, 5, 8);
-            backends.setOnCheckedChangeListener((group, checked) -> backendStatus.setText(
-                    cpuMode.isChecked() ? "CPU mode · no GPU offload requested"
-                            : "GPU requested · supported layers only; Mamba kernels remain on CPU"));
+            backends.setOnCheckedChangeListener((group, checked) ->
+                    updateBackendStatus(!cpuMode.isChecked(), false));
             margin(capture, label("FP16 permits lower precision in GPU layers. Compare its audio with FP32. CPU thread settings apply to the remaining CPU work.", 12, MUTED, false), 0, 8);
         }
         RadioGroup threads = new RadioGroup(this);
@@ -249,10 +260,7 @@ public final class PhoneActivity extends Activity {
     }
 
     private void showState(PhoneCaptureController.StateSnapshot s) {
-        if (backendStatus != null && !"ERROR".equals(s.phase)) backendStatus.setText(
-                !s.gpuRequested ? "CPU mode · no GPU offload requested"
-                        : s.acceleratorExecuted ? "GPU driver delegation observed · hybrid GPU + CPU"
-                        : "GPU requested · checking driver and delegated execution before recording");
+        if (!"ERROR".equals(s.phase)) updateBackendStatus(s.gpuRequested, s.acceleratorExecuted);
         switch (s.phase) {
             case "PREPARING":
                 stateTitle.setText("Getting RE-USE ready…");
@@ -264,13 +272,14 @@ public final class PhoneActivity extends Activity {
                 stateTitle.setText("Saving comparison…");
                 break;
             case "ERROR":
-                stateTitle.setText("Recording stopped");
+                showFailure(s.message);
                 break;
             default:
                 stateTitle.setText(validCapture(latest) ? "Comparison ready" : "Ready to record");
                 break;
         }
-        if (s.message != null && !s.message.isEmpty()) stateDetail.setText(s.message);
+        if (!(BuildConfig.GPU_EXPERIMENTAL && "ERROR".equals(s.phase))
+                && s.message != null && !s.message.isEmpty()) stateDetail.setText(s.message);
         int seconds = (int) Math.max(0, Math.min(60, s.seconds()));
         String clock = String.format(Locale.US, "%02d:%02d / 01:00", seconds / 60, seconds % 60);
         if (!clock.contentEquals(timer.getText())) timer.setText(clock);
@@ -308,6 +317,12 @@ public final class PhoneActivity extends Activity {
 
     private void beginRecording() {
         if (!visible || destroyed || controller.isActive()) return;
+        if (BuildConfig.GPU_EXPERIMENTAL && !cpuMode.isChecked()
+                && !GpuUiPolicy.canChooseGpu(false, gpuProbeComplete, gpuAvailable)) {
+            stateTitle.setText("GPU unavailable");
+            stateDetail.setText("Select CPU mode and press Start recording.");
+            return;
+        }
         active = true;
         phase = "PREPARING";
         stateTitle.setText("Getting RE-USE ready…");
@@ -321,8 +336,11 @@ public final class PhoneActivity extends Activity {
                     BuildConfig.GPU_EXPERIMENTAL && gpuFp16.isChecked());
         } catch (RuntimeException error) {
             active = false; phase = "ERROR";
-            stateTitle.setText("Unable to start");
-            stateDetail.setText(error.getMessage() == null ? "Please try again." : error.getMessage());
+            if (BuildConfig.GPU_EXPERIMENTAL) showFailure(error.getMessage());
+            else {
+                stateTitle.setText("Unable to start");
+                stateDetail.setText(error.getMessage() == null ? "Please try again." : error.getMessage());
+            }
             updateControls();
         }
     }
@@ -346,7 +364,9 @@ public final class PhoneActivity extends Activity {
         stop.setEnabled(active && !"STOPPING".equals(phase));
         twoThreads.setEnabled(!active); fourThreads.setEnabled(!active);
         if (cpuMode != null) {
-            cpuMode.setEnabled(!active); gpuFp32.setEnabled(!active); gpuFp16.setEnabled(!active);
+            cpuMode.setEnabled(!active);
+            boolean enableGpu = GpuUiPolicy.canChooseGpu(active, gpuProbeComplete, gpuAvailable);
+            gpuFp32.setEnabled(enableGpu); gpuFp16.setEnabled(enableGpu);
         }
         boolean recorded = validCapture(latest) && !active;
         before.setEnabled(recorded); after.setEnabled(recorded); share.setEnabled(recorded);
@@ -356,6 +376,23 @@ public final class PhoneActivity extends Activity {
         if (active && visible) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         for (Button button : new Button[]{start, stop, before, after, share}) button.setAlpha(button.isEnabled() ? 1f : .42f);
+    }
+
+    private void updateBackendStatus(boolean gpuRequested, boolean acceleratorExecuted) {
+        if (backendStatus != null) backendStatus.setText(GpuUiPolicy.backendStatus(
+                gpuProbeComplete, gpuAvailable, gpuAvailabilityMessage, gpuRequested, acceleratorExecuted));
+    }
+
+    private void showFailure(String message) {
+        if (BuildConfig.GPU_EXPERIMENTAL && GpuUiPolicy.isUnsupportedGpu(message)) {
+            gpuProbeComplete = true; gpuAvailable = false;
+            gpuAvailabilityMessage = GpuUiPolicy.UNAVAILABLE;
+            cpuMode.setChecked(true);
+            stateTitle.setText("GPU unavailable");
+        } else stateTitle.setText("Recording stopped");
+        stateDetail.setText(BuildConfig.GPU_EXPERIMENTAL ? GpuUiPolicy.readableError(message)
+                : message == null ? "Unable to record. Please try again." : message);
+        if (BuildConfig.GPU_EXPERIMENTAL) updateBackendStatus(!cpuMode.isChecked(), false);
     }
 
     private RadioButton backendChoice(String text, RadioGroup group) {
@@ -483,12 +520,16 @@ public final class PhoneActivity extends Activity {
             ArrayList<Uri> files = new ArrayList<>();
             for (String name : new String[]{"stats.json", "phone-capture.json"})
                 files.add(FileProvider.getUriForFile(this, getPackageName() + ".files", new File(latestDiagnostics, name)));
+            File probe = controller.gpuProbeDiagnosticsDir();
+            if (validDiagnostics(probe) && new File(probe, "gpu-probe.json").isFile())
+                files.add(FileProvider.getUriForFile(this, getPackageName() + ".files", new File(probe, "gpu-probe.json")));
             Intent send = new Intent(Intent.ACTION_SEND_MULTIPLE).setType("application/json")
                     .putParcelableArrayListExtra(Intent.EXTRA_STREAM, files)
                     .putExtra(Intent.EXTRA_SUBJECT, "RE-USE GPU preview diagnostics (no audio)")
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             ClipData clip = ClipData.newRawUri("RE-USE processing statistics", files.get(0));
-            clip.addItem(new ClipData.Item(files.get(1))); send.setClipData(clip);
+            for (int i = 1; i < files.size(); i++) clip.addItem(new ClipData.Item(files.get(i)));
+            send.setClipData(clip);
             startActivity(Intent.createChooser(send, "Share diagnostics without audio"));
         } catch (RuntimeException error) {
             Toast.makeText(this, "No app is available to share diagnostics.", Toast.LENGTH_SHORT).show();
