@@ -11,6 +11,9 @@ Android application still use the CPU. Here, “full neural GPU” refers to the
 ONNX neural graph, not every instruction in the audio pipeline.
 
 [Download the test APK and checksums](https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.6.0-full-gpu-probe1).
+The [build receipt](validation/full-gpu-probe1-build.json) records 135 passing
+Java tests, 41 Python tests and 223 package checks. Both app lint reports have
+zero errors; device execution remains unverified for this APK.
 
 ## Why reconstruct the graph
 
