@@ -10,6 +10,9 @@ execution or speed result is claimed by the build.** The earlier
 [eight-convolution measurements](qnn-convolution-experiments.md) remain separate.
 
 [Download the test APK and checksums](https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.5.0-resource-probe1).
+The [build and package receipt](validation/resource-probe1-build.json) records
+126 passing Java tests, app lint with zero errors, and 198 passing package checks.
+These are host checks; device execution remains unverified for this APK.
 The launcher is **RE-USE Compute Test (Unofficial)**, version
 `0.5.0-resource-probe1`, package `io.github.reuse.qnnprobe`. This updates the
 earlier benchmark app. It is a test application, not a microphone recorder.

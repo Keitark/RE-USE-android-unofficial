@@ -1,0 +1,781 @@
+{
+  "schema_version": 1,
+  "scope": "Host build, unit tests, app lint and APK package checks only; prepared for later device testing",
+  "timestamp_utc": "2026-11-02T16:23:19.787472+00:00",
+  "source_implementation_commit": "4e9d20da9a1bbe5cd4d8984c096085a51bbabb53",
+  "build_flags": {
+    "reuseNeonFma": true,
+    "reuseScanN16Registers": true,
+    "candidate": "Eight quantized convolutions; encoder dense stage 2 remains FP32"
+  },
+  "validation": {
+    "package_audit": {
+      "passed_checks": 198,
+      "failed_checks": 0,
+      "status": "PASS_HOST_PACKAGE_AUDIT"
+    },
+    "java_unit_tests": {
+      "qnn-probe": {
+        "tests": 53,
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0
+      },
+      "reuse": {
+        "tests": 34,
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0
+      },
+      "reuse-qnn": {
+        "tests": 15,
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0
+      },
+      "reuse-audio-qnn": {
+        "tests": 11,
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0
+      },
+      "phone-demo": {
+        "tests": 13,
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0
+      }
+    },
+    "java_unit_tests_total": 126,
+    "app_lint": {
+      "qnn-probe": {
+        "errors": 0,
+        "warnings": 10
+      },
+      "phone-demo": {
+        "errors": 0,
+        "warnings": 25
+      }
+    },
+    "library_lint_run": false,
+    "arm64_native_cross_compile_passed": true,
+    "vulkan_shader_compile_passed": true,
+    "vendor_native_bytes_match_pinned_maven": true,
+    "assets_match_whitelisted_sources": true,
+    "telemetry_startup_removed": true,
+    "microphone_permission_absent": true,
+    "network_permissions_absent": true,
+    "platform_gpu_drivers_not_bundled": true,
+    "prior_cpu_and_qnn_preview_artifacts_preserved": true,
+    "device_tests_run": false,
+    "gpu_execution_verified": false,
+    "vulkan_execution_verified": false,
+    "new_htp_execution_verified": false,
+    "performance_improvement_verified": false,
+    "microphone_started": false,
+    "audio_captured": false,
+    "audio_quality_verified": false
+  },
+  "artifact": {
+    "file": "reuse-resource-probe.apk",
+    "bytes": 133238331,
+    "sha256": "404de5f3f6d69fa400e5fa460af1954c9c86e625432ff78239a87a723ade4dc5",
+    "manifest_identity": {
+      "package": "io.github.reuse.qnnprobe",
+      "version_code": 4,
+      "version_name": "0.5.0-resource-probe1",
+      "min_sdk": 29,
+      "target_sdk": 35,
+      "launcher": "io.github.reuse.qnnprobe.ResourceProbeActivity"
+    },
+    "launcher_label": "RE-USE Compute Test (Unofficial)",
+    "signature": {
+      "verified": true,
+      "certificate_sha256": [
+        "7af2554a1fe30be6a3d1c8e04f79a4e733f77f8d78d9f04a03e4cce312e55fbb"
+      ],
+      "verification_schemes": {
+        "v1": false,
+        "v2": true,
+        "v3": false,
+        "v3.1": false,
+        "v4": false
+      }
+    },
+    "packaged_abis": [
+      "arm64-v8a"
+    ],
+    "vendor_native_library_count": 22,
+    "own_native_sha256": {
+      "libreuse_ort_ops.so": "457e2202c2b313534560304175a98c4a8846c847260390d9154543f0686db261",
+      "libreuse_live_dsp.so": "ec20e3a03a5c2cd0a62a563f544008d7e23d5472ce76c143e2123a286cb6df57",
+      "libreuse_resource_inventory.so": "7b3b8ee673e1ffd2a52262398bf36ed40f60205eefad8e52fc2a6ec91a24f68b"
+    },
+    "permissions": [
+      "io.github.reuse.qnnprobe.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+    ]
+  },
+  "dependencies": [
+    {
+      "coordinate": "com.microsoft.onnxruntime:onnxruntime-android:1.29.0",
+      "sha256": "e97540ca78fe36f6fe2013f82843414fb843b6c7681fb04644cba5e1406662dd",
+      "native_members": [
+        {
+          "member": "jni/arm64-v8a/libonnxruntime.so",
+          "bytes": 32120992,
+          "sha256": "3a602b463d434d20fbf69cd1b8bdfd2f86a2cb67d08de97aec8f62476fa4ab87"
+        },
+        {
+          "member": "jni/arm64-v8a/libonnxruntime4j_jni.so",
+          "bytes": 111648,
+          "sha256": "45673d7fba377fe0555892460766051b5993d65c9f65e528dc9d515c07c9f683"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.qualcomm.qti:onnxruntime-android-qnn:2.7.0",
+      "sha256": "ecd36df222e2a947ceb13bdd6fec181d1f1841b40379e21ce519830f2fbd562a",
+      "native_members": [
+        {
+          "member": "jni/arm64-v8a/libonnxruntime_providers_qnn.so",
+          "bytes": 4448624,
+          "sha256": "7616d66073d4d64fead7ed6f7b2384fe9e0e9f708fbce9a67dee215b122a2527"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.qualcomm.qti:qnn-runtime:2.51.0",
+      "sha256": "6388face1d5aa5e8958d745e5a547e92b5bec6fc332dfb1b438b1e17ffa02861",
+      "native_members": [
+        {
+          "member": "jni/arm64-v8a/libQnnDsp.so",
+          "bytes": 1768416,
+          "sha256": "da5721e6347f95672ad9575d7ffda2bbc1eef275d3f4713e387d265885324b1a"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnDspV66Skel.so",
+          "bytes": 2438864,
+          "sha256": "a6274e251ca41ebb762351ca8ba1b6c05496245be58a6f72571c63ce1fd84a32"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnDspV66Stub.so",
+          "bytes": 328584,
+          "sha256": "95aa01e2584c988ee30531a11dbb28452b1a7e81ee7463bfed0877062395a1bf"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnGpu.so",
+          "bytes": 12367840,
+          "sha256": "a0cb0d81b5d65431fd891d15f69ce842bc79631177ff4100ea3759df6bddee38"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtp.so",
+          "bytes": 4158496,
+          "sha256": "ebf19c66128da2169176d298b30fcd149d14e2d03f96e629538e26f56b7e2d7d"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpPrepare.so",
+          "bytes": 88106984,
+          "sha256": "1e6e63467675a12562b6f317c39345144fb7383dd4d0314b4bde0d25d2b17f59"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV68Skel.so",
+          "bytes": 13136716,
+          "sha256": "8ec5c35d40c3c41101a19f201a8606c4c3d337ce4c14c387f87190b286849ec2"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV68Stub.so",
+          "bytes": 795440,
+          "sha256": "4128433f57dd2bcfb57ec960b71860f8b67b46f70d6216c9a09389b8185d5cbc"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV69Skel.so",
+          "bytes": 13180108,
+          "sha256": "c09d91bea6f95a40c5adff7ac04394893f5eee777a71b58eb4fd64249128151b"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV69Stub.so",
+          "bytes": 795440,
+          "sha256": "1614baad47088ff5c15d9aead8509cdd7999fb16adb8379e9f8c6b113f74c930"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV73Skel.so",
+          "bytes": 19685168,
+          "sha256": "686371152962293fcfcb1f025a12aeccc9a9f610bc307d5991bd7c55f28c8179"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV73Stub.so",
+          "bytes": 802904,
+          "sha256": "11f8a0fe4ae121c135b552febcd884048222e56c4da7db528c5a7fe5f18edf91"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV75Skel.so",
+          "bytes": 19664660,
+          "sha256": "6cab0630a3fc9ba93368905660455ea916a61c208e162354b54bebd1ef950941"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV75Stub.so",
+          "bytes": 802904,
+          "sha256": "ecbb2eec558fd1ba818e5da7dbfcd34484f4cdabe569b86a9d4fa5ef6e646157"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV79Skel.so",
+          "bytes": 19486584,
+          "sha256": "43c87a5df1e970ba3e518b9ee33962036dd111ac9331dea6be154d8ff460ede8"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV79Stub.so",
+          "bytes": 802904,
+          "sha256": "21ea3c0d52646332c2312129a90014ed3e6255d198a0109e9c991dd4bacaecf7"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV81Skel.so",
+          "bytes": 20677132,
+          "sha256": "5e858eb739f75ab155d58977c9ab4fa678376881d4dae5cc260fb1cf2eab14c1"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV81Stub.so",
+          "bytes": 827328,
+          "sha256": "c610ff7a508fa4abb44ef90e2f490035879fa9c19314bac9b2faed3b4aa5cc45"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnSystem.so",
+          "bytes": 4125504,
+          "sha256": "460e782ff0d4de0ff89e1fbf2f4d8a7f96a0b86203d1de0b6db7413d37bc90af"
+        }
+      ]
+    }
+  ],
+  "model_settings": {
+    "sample_rate_hz": 8000,
+    "exit": 3,
+    "mamba_blocks": 3,
+    "lookahead_hops": 0,
+    "hops_per_call": 5,
+    "hop_ms": 20,
+    "audio_ms_per_call": 100,
+    "fp32_recurrent_states": 21
+  },
+  "model_sha256": {
+    "full-baseline": "f950dcfb9321191b2bcb3ab9afa3e100c40e5c64dd1de1d30849be4c1aacce32",
+    "full-candidate": "2820cc12668018ff3228020fe2b645aec726de768bcab25cbd91f37524b5f87f"
+  },
+  "asset_manifest_sha256": {
+    "assets/qnn/full-baseline/manifest.json": "8320e7c67d1bf8cdef7772096933fa0b3b2ef87f63d56a0304f69df9a0aa2813",
+    "assets/qnn/full-candidate/manifest.json": "10c0ac58e7db891de2ecc196d3dc76208120e38f842ffb5928bd3f6fbd69da19",
+    "assets/qnn/manifest.json": "3b4c54edae099e28df99b75285657f65104400ee70741fcd718ba895581aa51e"
+  },
+  "assets": [
+    {
+      "member": "assets/qnn/full-baseline/LICENSE-NVIDIA.txt",
+      "bytes": 4060,
+      "sha256": "6d1daa9c89ec421ba80fe051ac9f0dd46010d4fa4e8f4af654eb8e62f64e2ad5"
+    },
+    {
+      "member": "assets/qnn/full-baseline/manifest.json",
+      "bytes": 34185,
+      "sha256": "8320e7c67d1bf8cdef7772096933fa0b3b2ef87f63d56a0304f69df9a0aa2813"
+    },
+    {
+      "member": "assets/qnn/full-baseline/model.onnx",
+      "bytes": 7430855,
+      "sha256": "f950dcfb9321191b2bcb3ab9afa3e100c40e5c64dd1de1d30849be4c1aacce32"
+    },
+    {
+      "member": "assets/qnn/full-baseline-output.f32",
+      "bytes": 207360,
+      "sha256": "eb842b95f837f54c35fbc88f329c12880cc4b05a625b0912785ec65c09fb086e"
+    },
+    {
+      "member": "assets/qnn/full-candidate/LICENSE-NVIDIA.txt",
+      "bytes": 4060,
+      "sha256": "6d1daa9c89ec421ba80fe051ac9f0dd46010d4fa4e8f4af654eb8e62f64e2ad5"
+    },
+    {
+      "member": "assets/qnn/full-candidate/manifest.json",
+      "bytes": 34276,
+      "sha256": "10c0ac58e7db891de2ecc196d3dc76208120e38f842ffb5928bd3f6fbd69da19"
+    },
+    {
+      "member": "assets/qnn/full-candidate/model.onnx",
+      "bytes": 8342958,
+      "sha256": "2820cc12668018ff3228020fe2b645aec726de768bcab25cbd91f37524b5f87f"
+    },
+    {
+      "member": "assets/qnn/full-candidate-cpu-output.f32",
+      "bytes": 207360,
+      "sha256": "6d29e4857f62e67444e2ffadaf96537367b569d013a3ac674f9c1b1c5932b5e4"
+    },
+    {
+      "member": "assets/qnn/host-stream-comparison.json",
+      "bytes": 6392,
+      "sha256": "62dc54a9666becb7fb40f0188bf694bf3a07d8934d1f917a506de715bc3d912f"
+    },
+    {
+      "member": "assets/qnn/LICENSE-NVIDIA.txt",
+      "bytes": 4060,
+      "sha256": "6d1daa9c89ec421ba80fe051ac9f0dd46010d4fa4e8f4af654eb8e62f64e2ad5"
+    },
+    {
+      "member": "assets/qnn/manifest.json",
+      "bytes": 41498,
+      "sha256": "3b4c54edae099e28df99b75285657f65104400ee70741fcd718ba895581aa51e"
+    },
+    {
+      "member": "assets/qnn/public-input-8k.f32",
+      "bytes": 207360,
+      "sha256": "e6af48deb208432e7eeb624058b98ceb4b4542ab1a206c04fa621f3684ac33b5"
+    },
+    {
+      "member": "assets/qnn/reuse_encoder_dense1_conv_u8.fp32.onnx",
+      "bytes": 295582,
+      "sha256": "eb2286d2e76864ee9deb4d8d4176059328017eda7635ae1af737edda5bc38f39"
+    },
+    {
+      "member": "assets/qnn/reuse_encoder_dense1_conv_u8.fp32.output.f32",
+      "bytes": 208640,
+      "sha256": "d787198d5a04122c22077e8f0fab86a7fdf5c313283c6b717c7468170a55568f"
+    },
+    {
+      "member": "assets/qnn/reuse_encoder_dense1_conv_u8.input.f32",
+      "bytes": 751104,
+      "sha256": "59a5594a2bbdf3b59cb159edd18d988a9beeba9ace8db2ca9075100fdbfd87fb"
+    },
+    {
+      "member": "assets/qnn/reuse_encoder_dense1_conv_u8.onnx",
+      "bytes": 75174,
+      "sha256": "d68d1b4deaad68358ee5b3bb4115a406c41b83bc214bf256d766fa1c19c5a09b"
+    },
+    {
+      "member": "assets/qnn/reuse_encoder_dense1_conv_u8.output.f32",
+      "bytes": 208640,
+      "sha256": "ae694536e80fffd35b995b1159735fb718ed75779a3afe632d13eac4a7575d59"
+    },
+    {
+      "member": "assets/qnn/reuse_encoder_dilated_conv_u8.fp32.onnx",
+      "bytes": 590494,
+      "sha256": "59fa2612f7a6f160615eb51325cf83d0ce00e378cdef01d55a4169e3986ba2b3"
+    },
+    {
+      "member": "assets/qnn/reuse_encoder_dilated_conv_u8.fp32.output.f32",
+      "bytes": 208640,
+      "sha256": "cfc8f8a89d88d9628b811cb87d8d6854a0b458c6a5bd56a21244608dd452546b"
+    },
+    {
+      "member": "assets/qnn/reuse_encoder_dilated_conv_u8.input.f32",
+      "bytes": 3505152,
+      "sha256": "63e4732f8a299a85ea414a05f7ce4b183ae797bc9b317d65fdb8081f1d3ab2eb"
+    },
+    {
+      "member": "assets/qnn/reuse_encoder_dilated_conv_u8.onnx",
+      "bytes": 148902,
+      "sha256": "7b3bca87e4e78674cbd8fb37724dae7977b79ba18e6a220e8a3399e0f948d713"
+    },
+    {
+      "member": "assets/qnn/reuse_encoder_dilated_conv_u8.output.f32",
+      "bytes": 208640,
+      "sha256": "b8c61e6c28da7c2a74c8bc9898dc8430e27c605ea79aa2a7b6c663d6b6b13968"
+    },
+    {
+      "member": "assets/qnn/reuse_mask_dense1_conv_u8.fp32.onnx",
+      "bytes": 295580,
+      "sha256": "bed309aafd537c0d92d09f9d985f0cae8002c13aa960e1d443433c484c6b0a02"
+    },
+    {
+      "member": "assets/qnn/reuse_mask_dense1_conv_u8.fp32.output.f32",
+      "bytes": 103680,
+      "sha256": "0160806d2e7ec9f400c354f8abe20cdf36d3e61ed0af76efcdfd236a0cab6ae6"
+    },
+    {
+      "member": "assets/qnn/reuse_mask_dense1_conv_u8.input.f32",
+      "bytes": 373248,
+      "sha256": "4360afa7a28427eca8753d301b1ed073e5fce485d600c8fb7ab8b8e4c30e43db"
+    },
+    {
+      "member": "assets/qnn/reuse_mask_dense1_conv_u8.onnx",
+      "bytes": 75172,
+      "sha256": "73604a67acd3d0f571c25622c1d519b53c35432af05ad96be586d978f33eedf5"
+    },
+    {
+      "member": "assets/qnn/reuse_mask_dense1_conv_u8.output.f32",
+      "bytes": 103680,
+      "sha256": "26fe734070704c213fbaa6b8dd8854a540c33bf5a86d8f1e9d74eae7b10c9d2c"
+    },
+    {
+      "member": "assets/qnn/reuse_mask_dense2_conv_u8.fp32.onnx",
+      "bytes": 443036,
+      "sha256": "804815ddd2b3669679ac7f615c6a2f8f95d1b5acbf87391326f764e20eff52ff"
+    },
+    {
+      "member": "assets/qnn/reuse_mask_dense2_conv_u8.fp32.output.f32",
+      "bytes": 103680,
+      "sha256": "dfd018a8fc76fec359e4d1aeef4a732813049b82b7b4f09c6d5fa974f84fbd84"
+    },
+    {
+      "member": "assets/qnn/reuse_mask_dense2_conv_u8.input.f32",
+      "bytes": 808704,
+      "sha256": "557469fe7265da8f71d4319c283f3162dff84ff5dce9f29ae63f696eeb769746"
+    },
+    {
+      "member": "assets/qnn/reuse_mask_dense2_conv_u8.onnx",
+      "bytes": 112036,
+      "sha256": "5f84073528e41495e1a0b336a3831700da761154b958fe413ff552d1a7b84e13"
+    },
+    {
+      "member": "assets/qnn/reuse_mask_dense2_conv_u8.output.f32",
+      "bytes": 103680,
+      "sha256": "6be28eb6aafdb046f993d348b99fc28d365e76a96fe4c041361ed2997dca5831"
+    },
+    {
+      "member": "assets/qnn/reuse_mask_dense3_conv_u8.fp32.onnx",
+      "bytes": 590492,
+      "sha256": "d1674a416167df6a5b03ede1818408c082784d2cddf4dac4808d0336644ed40d"
+    },
+    {
+      "member": "assets/qnn/reuse_mask_dense3_conv_u8.fp32.output.f32",
+      "bytes": 103680,
+      "sha256": "f564a0e5e0e62ffe47a470df636bd453bc989a5e4046aaeada145c44ce74b425"
+    },
+    {
+      "member": "assets/qnn/reuse_mask_dense3_conv_u8.input.f32",
+      "bytes": 1741824,
+      "sha256": "8988b0786d556078c7d373f485201f1713687d7134ae84fae2431413bcc694b6"
+    },
+    {
+      "member": "assets/qnn/reuse_mask_dense3_conv_u8.onnx",
+      "bytes": 148900,
+      "sha256": "7aeea26b91a99c27ae0de991d8c5ce649fc8fa1a66cfb5da61816b44f2e226fc"
+    },
+    {
+      "member": "assets/qnn/reuse_mask_dense3_conv_u8.output.f32",
+      "bytes": 103680,
+      "sha256": "b9b6d802472b66c272b6920754f26035dd06aab53613b0837aa161266c081a57"
+    },
+    {
+      "member": "assets/qnn/reuse_phase_dense1_conv_u8.fp32.onnx",
+      "bytes": 295580,
+      "sha256": "f5494735fa78347053f82f6570f0fbb82484530e60031a7cb0d99b83cb141970"
+    },
+    {
+      "member": "assets/qnn/reuse_phase_dense1_conv_u8.fp32.output.f32",
+      "bytes": 103680,
+      "sha256": "9840976859bfcf180e0d0e774c91c8db4cbfe22977d1cf000d4fdc5ea05730cf"
+    },
+    {
+      "member": "assets/qnn/reuse_phase_dense1_conv_u8.input.f32",
+      "bytes": 373248,
+      "sha256": "5a4a662fd021b7e1f0bba693240d4337a46796f1e380029d7fdcc2548f7aa545"
+    },
+    {
+      "member": "assets/qnn/reuse_phase_dense1_conv_u8.onnx",
+      "bytes": 75172,
+      "sha256": "052fd1b18c8bc22ebefa7c06e3ba76ebf23e79dd4017006f653deab3185f42f7"
+    },
+    {
+      "member": "assets/qnn/reuse_phase_dense1_conv_u8.output.f32",
+      "bytes": 103680,
+      "sha256": "5c8a620a3f0449746ed61a1404403f32b21ef5b552c18d6696610f28557ee531"
+    },
+    {
+      "member": "assets/qnn/reuse_phase_dense2_conv_u8.fp32.onnx",
+      "bytes": 443036,
+      "sha256": "9d5d70babc7a1a335b4a8ca9a23af630654c3d16e5521684244accba6d0512df"
+    },
+    {
+      "member": "assets/qnn/reuse_phase_dense2_conv_u8.fp32.output.f32",
+      "bytes": 103680,
+      "sha256": "ade09887593d3f11f978efd7ad7ea4117973f24d2e06c549ff7b0d30d8aa47f5"
+    },
+    {
+      "member": "assets/qnn/reuse_phase_dense2_conv_u8.input.f32",
+      "bytes": 808704,
+      "sha256": "d289357bb64a317ae64f677c5e65e3d895775c5ba1f364f836d23d7237bd78e2"
+    },
+    {
+      "member": "assets/qnn/reuse_phase_dense2_conv_u8.onnx",
+      "bytes": 112036,
+      "sha256": "c74a20fe70104b3659102137cec026978a4e2c23fd6cab92e58dece341dd6aca"
+    },
+    {
+      "member": "assets/qnn/reuse_phase_dense2_conv_u8.output.f32",
+      "bytes": 103680,
+      "sha256": "8f49d7105d50699d3d238e3b39e16a9cd2c4e8fc9e55024c64c860ee92674e48"
+    },
+    {
+      "member": "assets/qnn/reuse_phase_dense3_conv_u8.fp32.onnx",
+      "bytes": 590492,
+      "sha256": "3f5305affcd5a6455e4b0cd7774b3fdb4893faf90e1157fc17ee7be1d163cad8"
+    },
+    {
+      "member": "assets/qnn/reuse_phase_dense3_conv_u8.fp32.output.f32",
+      "bytes": 103680,
+      "sha256": "c6f0e7d5dd63d94832f5d48ebc22a6cc47ddcda85cc33451e934fd7aabeed61e"
+    },
+    {
+      "member": "assets/qnn/reuse_phase_dense3_conv_u8.input.f32",
+      "bytes": 1741824,
+      "sha256": "a29cd7dc5e1ddb1eb89246718dd32e9c5dbbb9c5a441691b26da6848f85e3507"
+    },
+    {
+      "member": "assets/qnn/reuse_phase_dense3_conv_u8.onnx",
+      "bytes": 148900,
+      "sha256": "7b9a55799cd02bfe99216d864496c66af5537d22e3dbf12b73be2f0719483162"
+    },
+    {
+      "member": "assets/qnn/reuse_phase_dense3_conv_u8.output.f32",
+      "bytes": 103680,
+      "sha256": "2a0c6e5769545801f459b36df02e6ff2863e19af116878b7fbc5d58d38b868ac"
+    },
+    {
+      "member": "assets/qnn-notices/Apache-2.0.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "member": "assets/qnn-notices/NVIDIA-NSCLv1.txt",
+      "bytes": 4060,
+      "sha256": "6d1daa9c89ec421ba80fe051ac9f0dd46010d4fa4e8f4af654eb8e62f64e2ad5"
+    },
+    {
+      "member": "assets/qnn-notices/ONNXRuntime-MIT.txt",
+      "bytes": 1073,
+      "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
+    },
+    {
+      "member": "assets/qnn-notices/ONNXRuntime-ThirdPartyNotices.txt",
+      "bytes": 336906,
+      "sha256": "53d3fa5821ac016ac24dd35775c996efec86e2ae0841e9a3a5e146c0ae916845"
+    },
+    {
+      "member": "assets/qnn-notices/QNN-EP-MIT.txt",
+      "bytes": 1140,
+      "sha256": "f11e754f932564a0d8a9ad2c233bf671253dde137d3e2ef3082448bbe83e1764"
+    },
+    {
+      "member": "assets/qnn-notices/QNN-EP-ThirdPartyNotices.txt",
+      "bytes": 69810,
+      "sha256": "d039f057d20690116daa1fc65165cd0221ee168208d770062a84c1b4d579abb1"
+    },
+    {
+      "member": "assets/qnn-notices/Qualcomm-AI-Stack-License.pdf",
+      "bytes": 147577,
+      "sha256": "ec1dccfdcba5c6e64126e84199b8362bf4999107bfa567ebe831dbb4c461692b"
+    },
+    {
+      "member": "assets/qnn-notices/Qualcomm-AI-Stack-License.txt",
+      "bytes": 25307,
+      "sha256": "3a157c0013dadb4d0ee2379e1f90eb28be405d3507d480dd20bc0136586b35a4"
+    },
+    {
+      "member": "assets/qnn-notices/Qualcomm-NOTICE.txt",
+      "bytes": 130445,
+      "sha256": "0c5e8aad3506d0ab881cabaf0dae8de64e1784dc1ee6c873caf24a78fbf01924"
+    },
+    {
+      "member": "assets/qnn-notices/RE-USE-Project-LICENSE.txt",
+      "bytes": 1868,
+      "sha256": "2de29ed32299d997a643e3e0f5927b8f86a51451a898ba304b222a63acb98bcd"
+    },
+    {
+      "member": "assets/qnn-notices/README.md",
+      "bytes": 2784,
+      "sha256": "7f85533fb7dbb9b1b05816b74a181cdfe9ee46eb21bbbc7b019d3297d93733ff"
+    },
+    {
+      "member": "assets/reuse-qnn-notices/Apache-2.0.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "member": "assets/reuse-qnn-notices/NVIDIA-NSCLv1.txt",
+      "bytes": 4060,
+      "sha256": "6d1daa9c89ec421ba80fe051ac9f0dd46010d4fa4e8f4af654eb8e62f64e2ad5"
+    },
+    {
+      "member": "assets/reuse-qnn-notices/ONNXRuntime-MIT.txt",
+      "bytes": 1073,
+      "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
+    },
+    {
+      "member": "assets/reuse-qnn-notices/ONNXRuntime-ThirdPartyNotices.txt",
+      "bytes": 336906,
+      "sha256": "53d3fa5821ac016ac24dd35775c996efec86e2ae0841e9a3a5e146c0ae916845"
+    },
+    {
+      "member": "assets/reuse-qnn-notices/QNN-EP-MIT.txt",
+      "bytes": 1140,
+      "sha256": "f11e754f932564a0d8a9ad2c233bf671253dde137d3e2ef3082448bbe83e1764"
+    },
+    {
+      "member": "assets/reuse-qnn-notices/QNN-EP-ThirdPartyNotices.txt",
+      "bytes": 69810,
+      "sha256": "d039f057d20690116daa1fc65165cd0221ee168208d770062a84c1b4d579abb1"
+    },
+    {
+      "member": "assets/reuse-qnn-notices/Qualcomm-AI-Stack-License.pdf",
+      "bytes": 147577,
+      "sha256": "ec1dccfdcba5c6e64126e84199b8362bf4999107bfa567ebe831dbb4c461692b"
+    },
+    {
+      "member": "assets/reuse-qnn-notices/Qualcomm-AI-Stack-License.txt",
+      "bytes": 25307,
+      "sha256": "3a157c0013dadb4d0ee2379e1f90eb28be405d3507d480dd20bc0136586b35a4"
+    },
+    {
+      "member": "assets/reuse-qnn-notices/Qualcomm-NOTICE.txt",
+      "bytes": 130445,
+      "sha256": "0c5e8aad3506d0ab881cabaf0dae8de64e1784dc1ee6c873caf24a78fbf01924"
+    },
+    {
+      "member": "assets/reuse-qnn-notices/RE-USE-Project-LICENSE.txt",
+      "bytes": 1868,
+      "sha256": "2de29ed32299d997a643e3e0f5927b8f86a51451a898ba304b222a63acb98bcd"
+    },
+    {
+      "member": "assets/reuse-qnn-notices/README.md",
+      "bytes": 2784,
+      "sha256": "7f85533fb7dbb9b1b05816b74a181cdfe9ee46eb21bbbc7b019d3297d93733ff"
+    },
+    {
+      "member": "assets/reuse-audio-qnn-notices/Apache-2.0.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "member": "assets/reuse-audio-qnn-notices/NVIDIA-NSCLv1.txt",
+      "bytes": 4060,
+      "sha256": "6d1daa9c89ec421ba80fe051ac9f0dd46010d4fa4e8f4af654eb8e62f64e2ad5"
+    },
+    {
+      "member": "assets/reuse-audio-qnn-notices/ONNXRuntime-MIT.txt",
+      "bytes": 1073,
+      "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
+    },
+    {
+      "member": "assets/reuse-audio-qnn-notices/ONNXRuntime-ThirdPartyNotices.txt",
+      "bytes": 336906,
+      "sha256": "53d3fa5821ac016ac24dd35775c996efec86e2ae0841e9a3a5e146c0ae916845"
+    },
+    {
+      "member": "assets/reuse-audio-qnn-notices/QNN-EP-MIT.txt",
+      "bytes": 1140,
+      "sha256": "f11e754f932564a0d8a9ad2c233bf671253dde137d3e2ef3082448bbe83e1764"
+    },
+    {
+      "member": "assets/reuse-audio-qnn-notices/QNN-EP-ThirdPartyNotices.txt",
+      "bytes": 69810,
+      "sha256": "d039f057d20690116daa1fc65165cd0221ee168208d770062a84c1b4d579abb1"
+    },
+    {
+      "member": "assets/reuse-audio-qnn-notices/Qualcomm-AI-Stack-License.pdf",
+      "bytes": 147577,
+      "sha256": "ec1dccfdcba5c6e64126e84199b8362bf4999107bfa567ebe831dbb4c461692b"
+    },
+    {
+      "member": "assets/reuse-audio-qnn-notices/Qualcomm-AI-Stack-License.txt",
+      "bytes": 25307,
+      "sha256": "3a157c0013dadb4d0ee2379e1f90eb28be405d3507d480dd20bc0136586b35a4"
+    },
+    {
+      "member": "assets/reuse-audio-qnn-notices/Qualcomm-NOTICE.txt",
+      "bytes": 130445,
+      "sha256": "0c5e8aad3506d0ab881cabaf0dae8de64e1784dc1ee6c873caf24a78fbf01924"
+    },
+    {
+      "member": "assets/reuse-audio-qnn-notices/RE-USE-Project-LICENSE.txt",
+      "bytes": 1868,
+      "sha256": "2de29ed32299d997a643e3e0f5927b8f86a51451a898ba304b222a63acb98bcd"
+    },
+    {
+      "member": "assets/reuse-audio-qnn-notices/README.md",
+      "bytes": 2784,
+      "sha256": "7f85533fb7dbb9b1b05816b74a181cdfe9ee46eb21bbbc7b019d3297d93733ff"
+    },
+    {
+      "member": "assets/reuse-licenses/Java-MIT.txt",
+      "bytes": 1511,
+      "sha256": "47d52b07c7ca40e968320578bab32e41640fd54a544ae2b5a8c31ec37e298d9e"
+    },
+    {
+      "member": "assets/reuse-licenses/NDK-toolchain-NOTICE.txt",
+      "bytes": 777411,
+      "sha256": "d503f647f76ba8dc538eeeb5b3851f61d46a7d1f7651fe580dab8f2fbeecbfe5"
+    },
+    {
+      "member": "assets/reuse-licenses/NOTICE.txt",
+      "bytes": 1292,
+      "sha256": "3938b12e4e0175ead22a326131515a2616d6cd45d1661a11742455f911767a56"
+    },
+    {
+      "member": "assets/reuse-licenses/NVIDIA-NSCLv1.txt",
+      "bytes": 4060,
+      "sha256": "6d1daa9c89ec421ba80fe051ac9f0dd46010d4fa4e8f4af654eb8e62f64e2ad5"
+    },
+    {
+      "member": "assets/reuse-licenses/ONNXRuntime-MIT.txt",
+      "bytes": 1073,
+      "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
+    },
+    {
+      "member": "assets/reuse-audio-licenses/Java-MIT.txt",
+      "bytes": 1511,
+      "sha256": "47d52b07c7ca40e968320578bab32e41640fd54a544ae2b5a8c31ec37e298d9e"
+    },
+    {
+      "member": "assets/reuse-audio-licenses/NDK-toolchain-NOTICE.txt",
+      "bytes": 777411,
+      "sha256": "d503f647f76ba8dc538eeeb5b3851f61d46a7d1f7651fe580dab8f2fbeecbfe5"
+    },
+    {
+      "member": "assets/reuse-audio-licenses/NOTICE.txt",
+      "bytes": 449,
+      "sha256": "db936b073d74dd98f5b0b51e0fe2cb2726b8960f1544245dbc5b460f4867286a"
+    },
+    {
+      "member": "assets/reuse-audio-licenses/NVIDIA-NSCLv1.txt",
+      "bytes": 4060,
+      "sha256": "6d1daa9c89ec421ba80fe051ac9f0dd46010d4fa4e8f4af654eb8e62f64e2ad5"
+    }
+  ],
+  "test_plan": {
+    "cpu_threads": [
+      1,
+      2,
+      3,
+      4,
+      6,
+      8
+    ],
+    "cpu_order": [
+      1,
+      2,
+      3,
+      4,
+      6,
+      8,
+      8,
+      6,
+      4,
+      3,
+      2,
+      1
+    ],
+    "cpu_models": [
+      "FP32 baseline",
+      "Eight-Conv QDQ"
+    ],
+    "htp_modes": [
+      "balanced",
+      "burst"
+    ],
+    "gpu": "Direct QNN GPU FP32; isolated strict numerical/provider/backend-identity prerequisite before full graph with CPU fallback",
+    "vulkan": "Deterministic FP32 primitive smoke test only; not a RE-USE backend",
+    "opencl": "Read-only GPU discovery; not execution proof"
+  },
+  "limitations": [
+    "No physical-device installation, UI, GPU, Vulkan, or new NPU execution was performed for this APK.",
+    "No microphone, sustained live pipeline, speaker playout, battery-energy or general audio-quality claim.",
+    "A successful APK build does not establish resource compatibility or faster processing.",
+    "App lint completed with warnings; library-module lint was not run.",
+    "Development-signed prerelease; NVIDIA model and model-derived components retain noncommercial NSCLv1 restrictions."
+  ]
+}
