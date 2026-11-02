@@ -11,6 +11,11 @@ alongside the resource comparison and strict neural GPU experiments. Use
 - `adb-system-load.jsonl` and `adb-system-load-summary.json`, when a connected
   developer has explicitly collected and attached system load through ADB.
 
+[Download the telemetry APK and checksums](https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.7.0-telemetry-probe1).
+The [build and device-check receipt](validation/telemetry-probe1-build.json)
+records 148 passing Java tests, 13 Python tests with 20 subtests, 230 package
+checks, and the bounded Xperia logging test.
+
 The APK keeps the same model, numerical gates, worker thread settings and
 microphone/network permission policy. The resource button is labelled
 **Compare CPU / NPU / legacy GPU** to distinguish the older hybrid test from
@@ -43,6 +48,26 @@ Sensor reads and file writes occur on the sampler thread, outside the measured
 synchronous call region. The sampler still competes with inference and its CPU
 time contributes to whole-process CPU time. These are instrumented runs;
 collection cost, lag and event/file limits are reported, not assumed negligible.
+
+## Xperia instrumented check
+
+A foreground public-input resource comparison completed in 139.7 seconds with
+280 app samples, 2,056 call events and zero dropped logging events. The matching
+ADB recording supplied 240 samples and covered the entire app run; both files
+were attached to that capture for sharing. Four-thread FP32 averaged 38.3 ms per
+100 ms call, with a 45.6 ms maximum and no process call over 100 ms among 130.
+
+The prime core's reported policy frequency cap changed from 2.9952 GHz to
+2.5152 GHz in later trials; CPU 4's cap changed from 2.496 to 2.2272 GHz.
+Vendor CPU temperature sensors peaked at 94.8 degrees Celsius. The slower
+repeat did not coincide with an obvious aggregate CPU-load spike in matching
+windows. These observations support changing frequency/power conditions as a
+contributor. They do not establish the exact thermal/power-policy cause, actual
+hardware frequency, per-app background activity or sustained microphone behavior.
+
+The sampler reported 1,212 ms of its own thread CPU time across the run. This
+discloses observer work; it is not an estimate of energy or proof that the
+observer had no effect on the benchmark.
 
 ## Connected system-load collection
 
