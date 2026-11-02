@@ -1,0 +1,306 @@
+{
+  "schema_version": 1,
+  "scope": "Build/package verification and bounded Xperia public-input evidence; no microphone or perceptual-quality acceptance",
+  "source_implementation_commit": "c3959b3e870b7f015acf845a84b2f8cfd4b00900",
+  "build_flags": {
+    "reuseQnnExperimental": true,
+    "reuseNeonFma": true,
+    "reuseScanN16Registers": true,
+    "candidate": "eight quantized convolutions; encoder dense stage 2 remains FP32"
+  },
+  "validation": {
+    "package_audit": {
+      "passed_checks": 196,
+      "failed_checks": 0,
+      "warnings": 2
+    },
+    "java_unit_tests": {
+      "reuse": {
+        "tests": 34,
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0
+      },
+      "reuse-qnn": {
+        "tests": 11,
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0
+      },
+      "reuse-audio-qnn": {
+        "tests": 11,
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0
+      },
+      "qnn-probe": {
+        "tests": 34,
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0
+      },
+      "phone-demo": {
+        "tests": 13,
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0
+      }
+    },
+    "python_tests": 53,
+    "python_subtests": 8,
+    "qnn_phone_lint_errors": 0,
+    "qnn_benchmark_lint_errors": 0,
+    "default_cpu_phone_build_and_lint_passed": true,
+    "stable_cpu_artifact_preserved": true,
+    "telemetry_startup_removed": true,
+    "network_permissions_absent": true,
+    "vendor_native_bytes_match_pinned_maven": true,
+    "no_vendor_jni_or_weights_shaded_in_optional_adapter_aars": true,
+    "phone_apk_installed_on_xperia": true,
+    "phone_ui_ready_verified": true,
+    "phone_microphone_started_by_agent": false,
+    "audio_quality_verified": false
+  },
+  "apks": {
+    "mic": {
+      "bytes": 117255320,
+      "sha256": "634deabc1aa198d0701358114d85400b37223c07b73ca5569fcf1e45be826dde",
+      "manifest_identity": {
+        "package": "io.github.reuse.phone.qnn",
+        "version_code": 1,
+        "version_name": "0.4.0-qnn-mic-preview1",
+        "min_sdk": 29,
+        "target_sdk": 35
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "io.github.reuse.phone.qnn.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "signature": {
+        "verified": true,
+        "certificate_sha256": [
+          "7af2554a1fe30be6a3d1c8e04f79a4e733f77f8d78d9f04a03e4cce312e55fbb"
+        ],
+        "verification_schemes": {
+          "v1": false,
+          "v2": true,
+          "v3": false,
+          "v3.1": false,
+          "v4": false
+        }
+      },
+      "packaged_abis": [
+        "arm64-v8a"
+      ],
+      "vendor_native_library_count": 22,
+      "own_native_sha256": {
+        "libreuse_live_dsp.so": "ec20e3a03a5c2cd0a62a563f544008d7e23d5472ce76c143e2123a286cb6df57",
+        "libreuse_ort_ops.so": "457e2202c2b313534560304175a98c4a8846c847260390d9154543f0686db261"
+      },
+      "file": "reuse-qnn-mic-demo.apk"
+    },
+    "benchmark": {
+      "bytes": 134724652,
+      "sha256": "5dc4901b0528e2d7f4e66bcd2f5204240faa8b96a7057afb480ac4532779f6fc",
+      "manifest_identity": {
+        "package": "io.github.reuse.qnnprobe",
+        "version_code": 3,
+        "version_name": "0.4.0-qnn-hybrid-preview1",
+        "min_sdk": 29,
+        "target_sdk": 35
+      },
+      "permissions": [
+        "io.github.reuse.qnnprobe.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+      ],
+      "signature": {
+        "verified": true,
+        "certificate_sha256": [
+          "7af2554a1fe30be6a3d1c8e04f79a4e733f77f8d78d9f04a03e4cce312e55fbb"
+        ],
+        "verification_schemes": {
+          "v1": false,
+          "v2": true,
+          "v3": false,
+          "v3.1": false,
+          "v4": false
+        }
+      },
+      "packaged_abis": [
+        "arm64-v8a"
+      ],
+      "vendor_native_library_count": 22,
+      "own_native_sha256": {
+        "libreuse_live_dsp.so": "ec20e3a03a5c2cd0a62a563f544008d7e23d5472ce76c143e2123a286cb6df57",
+        "libreuse_ort_ops.so": "457e2202c2b313534560304175a98c4a8846c847260390d9154543f0686db261"
+      },
+      "file": "reuse-qnn-benchmark.apk"
+    }
+  },
+  "artifacts": [
+    {
+      "file": "reuse-android-libraries-qnn-preview.zip",
+      "bytes": 1420432,
+      "sha256": "360327236e357a8955b54829d1061986bc9b0835cb6182d12509beebd7ccdc7a"
+    },
+    {
+      "file": "reuse-qnn-benchmark.apk",
+      "bytes": 134724652,
+      "sha256": "5dc4901b0528e2d7f4e66bcd2f5204240faa8b96a7057afb480ac4532779f6fc"
+    },
+    {
+      "file": "reuse-qnn-mic-demo.apk",
+      "bytes": 117255320,
+      "sha256": "634deabc1aa198d0701358114d85400b37223c07b73ca5569fcf1e45be826dde"
+    }
+  ],
+  "dependencies": [
+    {
+      "coordinate": "com.microsoft.onnxruntime:onnxruntime-android:1.29.0",
+      "sha256": "e97540ca78fe36f6fe2013f82843414fb843b6c7681fb04644cba5e1406662dd",
+      "native_members": [
+        {
+          "member": "jni/arm64-v8a/libonnxruntime.so",
+          "bytes": 32120992,
+          "sha256": "3a602b463d434d20fbf69cd1b8bdfd2f86a2cb67d08de97aec8f62476fa4ab87"
+        },
+        {
+          "member": "jni/arm64-v8a/libonnxruntime4j_jni.so",
+          "bytes": 111648,
+          "sha256": "45673d7fba377fe0555892460766051b5993d65c9f65e528dc9d515c07c9f683"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.qualcomm.qti:onnxruntime-android-qnn:2.7.0",
+      "sha256": "ecd36df222e2a947ceb13bdd6fec181d1f1841b40379e21ce519830f2fbd562a",
+      "native_members": [
+        {
+          "member": "jni/arm64-v8a/libonnxruntime_providers_qnn.so",
+          "bytes": 4448624,
+          "sha256": "7616d66073d4d64fead7ed6f7b2384fe9e0e9f708fbce9a67dee215b122a2527"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.qualcomm.qti:qnn-runtime:2.51.0",
+      "sha256": "6388face1d5aa5e8958d745e5a547e92b5bec6fc332dfb1b438b1e17ffa02861",
+      "native_members": [
+        {
+          "member": "jni/arm64-v8a/libQnnDsp.so",
+          "bytes": 1768416,
+          "sha256": "da5721e6347f95672ad9575d7ffda2bbc1eef275d3f4713e387d265885324b1a"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnDspV66Skel.so",
+          "bytes": 2438864,
+          "sha256": "a6274e251ca41ebb762351ca8ba1b6c05496245be58a6f72571c63ce1fd84a32"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnDspV66Stub.so",
+          "bytes": 328584,
+          "sha256": "95aa01e2584c988ee30531a11dbb28452b1a7e81ee7463bfed0877062395a1bf"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnGpu.so",
+          "bytes": 12367840,
+          "sha256": "a0cb0d81b5d65431fd891d15f69ce842bc79631177ff4100ea3759df6bddee38"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtp.so",
+          "bytes": 4158496,
+          "sha256": "ebf19c66128da2169176d298b30fcd149d14e2d03f96e629538e26f56b7e2d7d"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpPrepare.so",
+          "bytes": 88106984,
+          "sha256": "1e6e63467675a12562b6f317c39345144fb7383dd4d0314b4bde0d25d2b17f59"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV68Skel.so",
+          "bytes": 13136716,
+          "sha256": "8ec5c35d40c3c41101a19f201a8606c4c3d337ce4c14c387f87190b286849ec2"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV68Stub.so",
+          "bytes": 795440,
+          "sha256": "4128433f57dd2bcfb57ec960b71860f8b67b46f70d6216c9a09389b8185d5cbc"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV69Skel.so",
+          "bytes": 13180108,
+          "sha256": "c09d91bea6f95a40c5adff7ac04394893f5eee777a71b58eb4fd64249128151b"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV69Stub.so",
+          "bytes": 795440,
+          "sha256": "1614baad47088ff5c15d9aead8509cdd7999fb16adb8379e9f8c6b113f74c930"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV73Skel.so",
+          "bytes": 19685168,
+          "sha256": "686371152962293fcfcb1f025a12aeccc9a9f610bc307d5991bd7c55f28c8179"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV73Stub.so",
+          "bytes": 802904,
+          "sha256": "11f8a0fe4ae121c135b552febcd884048222e56c4da7db528c5a7fe5f18edf91"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV75Skel.so",
+          "bytes": 19664660,
+          "sha256": "6cab0630a3fc9ba93368905660455ea916a61c208e162354b54bebd1ef950941"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV75Stub.so",
+          "bytes": 802904,
+          "sha256": "ecbb2eec558fd1ba818e5da7dbfcd34484f4cdabe569b86a9d4fa5ef6e646157"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV79Skel.so",
+          "bytes": 19486584,
+          "sha256": "43c87a5df1e970ba3e518b9ee33962036dd111ac9331dea6be154d8ff460ede8"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV79Stub.so",
+          "bytes": 802904,
+          "sha256": "21ea3c0d52646332c2312129a90014ed3e6255d198a0109e9c991dd4bacaecf7"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV81Skel.so",
+          "bytes": 20677132,
+          "sha256": "5e858eb739f75ab155d58977c9ab4fa678376881d4dae5cc260fb1cf2eab14c1"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV81Stub.so",
+          "bytes": 827328,
+          "sha256": "c610ff7a508fa4abb44ef90e2f490035879fa9c19314bac9b2faed3b4aa5cc45"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnSystem.so",
+          "bytes": 4125504,
+          "sha256": "460e782ff0d4de0ff89e1fbf2f4d8a7f96a0b86203d1de0b6db7413d37bc90af"
+        }
+      ]
+    }
+  ],
+  "model": {
+    "baseline_sha256": "f950dcfb9321191b2bcb3ab9afa3e100c40e5c64dd1de1d30849be4c1aacce32",
+    "candidate_sha256": "2820cc12668018ff3228020fe2b645aec726de768bcab25cbd91f37524b5f87f",
+    "fixture_manifest_sha256": "3b4c54edae099e28df99b75285657f65104400ee70741fcd718ba895581aa51e",
+    "sample_rate": 8000,
+    "exit_layers": 3,
+    "frames_per_call": 5,
+    "look_ahead_frames": 0,
+    "fp32_recurrent_states": 21
+  },
+  "device_evidence": "qnn-convolution-experiments.json",
+  "tested_benchmark_identity": {
+    "device_tested_benchmark_sha256": "5dc4901b0528e2d7f4e66bcd2f5204240faa8b96a7057afb480ac4532779f6fc",
+    "release_benchmark_sha256": "5dc4901b0528e2d7f4e66bcd2f5204240faa8b96a7057afb480ac4532779f6fc",
+    "byte_identical": true
+  },
+  "warnings": [
+    "mic: dormant ORT TelemetryInitializer class remains in DEX; manifest startup declaration and network permissions are absent.",
+    "benchmark: dormant ORT TelemetryInitializer class remains in DEX; manifest startup declaration and network permissions are absent."
+  ]
+}

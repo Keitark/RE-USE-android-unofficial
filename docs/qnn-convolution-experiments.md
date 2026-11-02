@@ -23,6 +23,8 @@ are separate from the rejected grouped-normalization candidates.
 The [sanitized receipt](validation/qnn-convolution-experiments.json) records
 the model hashes, limits and numerical results. NVIDIA-derived graphs remain
 subject to NSCLv1 for noncommercial research and education.
+The [build receipt](validation/qnn-hybrid-preview1-build.json) records package
+hashes, 103 Java tests, 53 Python tests, and 196 package integrity checks.
 
 ## Keep the variants separate
 
