@@ -361,12 +361,12 @@
     ],
     "vendor_cpu_sensor_peak_celsius": 94.8,
     "driver_policy_cap_observations_khz": {
-      "prime_cpu7_first": 2995200,
       "prime_cpu7_later": 2515200,
-      "cpu4_first": 2496000,
-      "cpu4_later": 2227200
+      "cpu4_later": 2227200,
+      "prime_cpu7_early_observed_high": 2995200,
+      "cpu4_early_observed_high": 2496000
     },
-    "interpretation": "Slower repeated trials coincide with lower driver policy frequency caps and warmer sensors. This supports changing frequency/power conditions as a contributor; the exact cap cause and per-app background attribution are not established.",
+    "interpretation": "Slower repeated trials coincide with lower driver policy frequency caps. High vendor CPU temperatures were also observed during the run. This supports changing frequency/power conditions as a contributor; the exact cap cause and per-app background attribution are not established.",
     "slowdown_cause_identified": false,
     "microphone_started": false,
     "audio_captured": false,

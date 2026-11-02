@@ -57,8 +57,9 @@ ADB recording supplied 240 samples and covered the entire app run; both files
 were attached to that capture for sharing. Four-thread FP32 averaged 38.3 ms per
 100 ms call, with a 45.6 ms maximum and no process call over 100 ms among 130.
 
-The prime core's reported policy frequency cap changed from 2.9952 GHz to
-2.5152 GHz in later trials; CPU 4's cap changed from 2.496 to 2.2272 GHz.
+The prime core's reported policy frequency cap reached 2.9952 GHz in early
+trials and fell to 2.5152 GHz later; CPU 4's cap reached 2.496 GHz early and
+2.2272 GHz later.
 Vendor CPU temperature sensors peaked at 94.8 degrees Celsius. The slower
 repeat did not coincide with an obvious aggregate CPU-load spike in matching
 windows. These observations support changing frequency/power conditions as a
