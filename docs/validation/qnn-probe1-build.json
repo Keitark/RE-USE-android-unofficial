@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "recorded_utc": "2026-11-02T08:50:54.081999+00:00",
+  "recorded_utc": "2026-11-02T09:00:35.808500+00:00",
   "scope": "Host build/package verification only; no physical NPU execution or full RE-USE acceleration measured",
   "apk": {
     "file": "reuse-qnn-probe.apk",
@@ -296,6 +296,27 @@
     }
   ],
   "stable_cpu_apk_sha256_unchanged": "eca2ffde807aa18b340c1cec87a027c8ae1be082634cafdb65736502d4e5b37c",
+  "implementation_commit": "15d4649",
+  "emulator_ui_check": {
+    "api_level": 35,
+    "host_abi": "x86_64",
+    "guest_abi": "arm64-v8a",
+    "native_bridge": "libndk_translation.so",
+    "installed": true,
+    "activity_launch_verified": true,
+    "native_probe_completed": false,
+    "native_crash_signal": "SIGSEGV",
+    "last_stage": "runtime.ort",
+    "qnn_registration_reached": false,
+    "trace_assessment": "Trace points to ORT CPU feature initialization before QNN; physical ARM behavior unverified",
+    "checkpoint_saved": true,
+    "interrupted_stage_restored_after_relaunch": true,
+    "share_chooser_opened": true,
+    "json_attachment_count": 3,
+    "external_message_sent": false,
+    "npu_execution_verified": false,
+    "performance_measured": false
+  },
   "open_validation": [
     "Physical Xperia IV HTP execution and diagnostic export",
     "Real-model Conv regions and full streaming CPU/NPU timing",

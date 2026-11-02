@@ -10,6 +10,10 @@ and education under NSCLv1.
 
 ## Try the APK
 
+[Download the research probe APK](https://github.com/Keitark/RE-USE-android-unofficial/releases/download/v0.3.0-qnn-probe1/reuse-qnn-probe.apk)
+from the [release and checksums](https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.3.0-qnn-probe1).
+It is about 102 MB and debug-signed.
+
 Install `reuse-qnn-probe.apk` and open **RE-USE QNN Probe (Unofficial)**. Press
 **Run NPU test**, keep the screen open, then use **Share diagnostics** to export
 the result. The probe has no microphone or Internet permission. It installs
@@ -19,6 +23,14 @@ Android 10 or newer and ARM64 are required. The initial target is Xperia IV's
 Snapdragon 8 Gen 1 / SM8450, whose Hexagon generation is V69. The packaged
 runtime includes V69 support; actual device firmware and FastRPC access still
 need a physical test. An emulator cannot establish NPU compatibility or speed.
+
+The [build receipt](validation/qnn-probe1-build.json) records 13 passing host
+tests, package checks, and the separate emulator UI check. In the API 35 x86
+emulator, the UI launches, but the ARM-translated ORT 1.29 native library crashes
+during initialization before QNN registration. The trace points to CPU feature
+initialization; this is not a physical Xperia result. Reopening the app restores
+the interrupted-stage diagnostics, and the share chooser exposes the three JSON
+files. No NPU execution or performance result has been obtained from that test.
 
 ## What is tested
 
