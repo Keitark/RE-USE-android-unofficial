@@ -1,6 +1,7 @@
 package io.github.reuse.qnnprobe;
 
 import android.content.Context;
+import android.os.SystemClock;
 import android.util.Log;
 import ai.onnxruntime.OnnxJavaType;
 import ai.onnxruntime.OnnxTensor;
@@ -51,6 +52,11 @@ final class GpuResourceProbe {
 
     /** Runs on the development worker; a native call cannot be interrupted by the cooperative budget. */
     static JSONObject run(Context context, File captureDirectory, QnnProbeRunner.Progress progress) {
+        return run(context, captureDirectory, progress, null);
+    }
+
+    static JSONObject run(Context context, File captureDirectory, QnnProbeRunner.Progress progress,
+                          BenchmarkTelemetry telemetry) {
         JSONObject report = new JSONObject();
         Path directory = null;
         long began = System.nanoTime(), deadline = began + BUDGET_NS;
@@ -69,6 +75,8 @@ final class GpuResourceProbe {
             put(report, "audio_quality_verified", false);
             put(report, "gpu_backend_execution_verified", false);
             put(report, "gpu_hardware_counter_trace_collected", false);
+            put(report, "benchmark_telemetry_instrumented", telemetry != null);
+            if (telemetry != null) put(report, "benchmark_telemetry_scope", "Clock/temperature/load sampler runs concurrently; process CPU time includes sampler work and call-event logging occurs after timing snapshots.");
             put(report, "scope", "Direct libQnnGpu.so compatibility, numerical and provider/backend identity tests; no NNAPI, microphone, live queue, speaker playout or perceptual-quality acceptance.");
             put(report, "budget_seconds", 45);
             put(report, "budget_scope", "Cooperative wall budget checked between synchronous calls; native compilation/inference cannot be interrupted and may exceed this budget.");
@@ -85,7 +93,7 @@ final class GpuResourceProbe {
             stage = "gpu.isolated_fp32_convolution";
             progress.update("Direct Adreno path · strict FP32 convolution prerequisite…");
             save(report, directory, stage);
-            JSONObject isolated = isolated(application, environment, fixture, directory, deadline);
+            JSONObject isolated = isolated(application, environment, fixture, directory, deadline, telemetry);
             put(report, "isolated_fp32_convolution", isolated);
             save(report, directory, stage);
             if (!isolated.optBoolean("strict_numerical_provider_passed", false)) {
@@ -115,7 +123,7 @@ final class GpuResourceProbe {
                 JSONObject cpu = new JSONObject();
                 put(report, "full_cpu_reference", cpu);
                 save(report, directory, stage);
-                float[] reference = completeStream(application, model, audio, directory, false, cpu, deadline, progress);
+                float[] reference = completeStream(application, model, audio, directory, false, cpu, deadline, progress, telemetry);
                 save(report, directory, stage);
                 if (reference == null) {
                     put(report, "status", "CPU_REFERENCE_INCOMPLETE");
@@ -126,7 +134,7 @@ final class GpuResourceProbe {
                     JSONObject gpu = new JSONObject();
                     put(report, "full_gpu_hybrid", gpu);
                     save(report, directory, stage);
-                    float[] actual = completeStream(application, model, audio, directory, true, gpu, deadline, progress);
+                    float[] actual = completeStream(application, model, audio, directory, true, gpu, deadline, progress, telemetry);
                     if (actual == null) {
                         put(report, "status", "FULL_GPU_INCOMPLETE");
                     } else {
@@ -166,7 +174,7 @@ final class GpuResourceProbe {
     }
 
     private static JSONObject isolated(Context context, OrtEnvironment environment, JSONObject fixture,
-                                        Path directory, long deadline) {
+                                        Path directory, long deadline, BenchmarkTelemetry telemetry) {
         JSONObject result = new JSONObject();
         String stage = "gpu.isolated.assets";
         try {
@@ -190,6 +198,7 @@ final class GpuResourceProbe {
                 backend.configure(environment, options);
                 put(result, "backend_configuration", new JSONObject(backend.diagnostics()));
                 stage = "gpu.isolated.create_compile";
+                if (telemetry != null) telemetry.mark("legacy_gpu", "gpu_isolated", "compile", 1, -1);
                 checkBudget(deadline);
                 long compile = System.nanoTime();
                 try (OrtSession session = environment.createSession(graph, options);
@@ -205,6 +214,7 @@ final class GpuResourceProbe {
                     ProbeVerification.Comparison worst = null;
                     stage = "gpu.isolated.profiled_warmup";
                     for (int i = 0; i < WARMUP; i++) {
+                        if (telemetry != null) telemetry.mark("legacy_gpu", "gpu_isolated", "warmup", 1, i);
                         checkBudget(deadline);
                         ProbeVerification.Comparison c = ProbeVerification.compare(execute(session, feed, output.getString("name")), expected, absolute, relative);
                         if (worst == null || c.maximumAbsoluteError > worst.maximumAbsoluteError) worst = c;
@@ -214,6 +224,7 @@ final class GpuResourceProbe {
                         }
                     }
                     Path profile = new File(session.endProfiling()).toPath();
+                    if (telemetry != null) telemetry.mark("legacy_gpu", "gpu_isolated", "verify_profile", 1, -1);
                     Map<String, Object> evidence = backend.verifyProfile(profile, WARMUP, true);
                     put(result, "warmup_provider_evidence", new JSONObject(evidence));
                     if (!Boolean.TRUE.equals(evidence.get("qnn_only_kernel_execution_verified")))
@@ -222,9 +233,14 @@ final class GpuResourceProbe {
                     stage = "gpu.isolated.unprofiled_timing";
                     for (int i = 0; i < times.length; i++) {
                         checkBudget(deadline);
+                        if (telemetry != null) telemetry.mark("legacy_gpu", "gpu_isolated", "isolated_timing", 1, i);
+                        long traceStart = telemetry == null ? 0 : SystemClock.elapsedRealtimeNanos();
+                        long cpuStart = telemetry == null ? 0 : android.os.Process.getElapsedCpuTime();
                         long start = System.nanoTime();
                         float[] actual = execute(session, feed, output.getString("name"));
                         times[i] = elapsed(start);
+                        long cpuMs = telemetry == null ? 0 : android.os.Process.getElapsedCpuTime() - cpuStart;
+                        if (telemetry != null) telemetry.recordCall(traceStart, SystemClock.elapsedRealtimeNanos(), times[i], Math.max(0, cpuMs));
                         ProbeVerification.Comparison c = ProbeVerification.compare(actual, expected, absolute, relative);
                         if (c.maximumAbsoluteError > worst.maximumAbsoluteError) worst = c;
                         if (!c.passed) {
@@ -238,6 +254,7 @@ final class GpuResourceProbe {
                     put(result, "timed_calls_profiled", false);
                     recordComparison(result, worst);
                     put(result, "strict_numerical_provider_passed", true);
+                    if (telemetry != null) telemetry.mark("legacy_gpu", "gpu_isolated", "cleanup", 1, -1);
                 }
                 JSONObject logEvidence = logs.finish();
                 put(result, "loaded_backend_evidence", logEvidence);
@@ -252,13 +269,15 @@ final class GpuResourceProbe {
             put(result, "strict_numerical_provider_passed", false);
             put(result, "failure_stage", stage); put(result, "error", error.toString());
             put(result, "error_details", io.github.reuse.live.EnhancementSession.boundedErrorDetails(error));
+        } finally {
+            if (telemetry != null) telemetry.mark("legacy_gpu", "gpu_isolated", "cleanup", 1, -1);
         }
         return result;
     }
 
     private static float[] completeStream(Context context, ModelFiles model, float[] audio, Path directory,
                                           boolean gpu, JSONObject result, long deadline,
-                                          QnnProbeRunner.Progress progress) {
+                                          QnnProbeRunner.Progress progress, BenchmarkTelemetry telemetry) {
         String prefix = gpu ? "resource-gpu-full" : "resource-gpu-cpu-reference", stage = prefix + ".initialize";
         put(result, "status", "RUNNING");
         put(result, "gpu_backend_execution_verified", false);
@@ -272,12 +291,17 @@ final class GpuResourceProbe {
             checkBudget(deadline);
             long compile = System.nanoTime();
             stage = prefix + ".create_compile";
+            if (telemetry != null) telemetry.mark("legacy_gpu", prefix, "compile", 2, -1);
             try (ChunkedReuseEnhancer enhancer = ChunkedReuseEnhancer.create(context, model.model, model.manifest,
                     new ReuseConfig(8000, 3, 2), options)) {
                 put(result, "session_create_compile_ms", elapsed(compile));
                 if (gpu) put(result, "backend_configuration", new JSONObject(backend.diagnostics()));
                 stage = prefix + ".profiled_warmup";
-                for (int i = 0; i < WARMUP; i++) { checkBudget(deadline); finite(enhancer.process(new float[CHUNK])); }
+                for (int i = 0; i < WARMUP; i++) {
+                    if (telemetry != null) telemetry.mark("legacy_gpu", prefix, "warmup", 2, i);
+                    checkBudget(deadline); finite(enhancer.process(new float[CHUNK]));
+                }
+                if (telemetry != null) telemetry.mark("legacy_gpu", prefix, "verify_profile", 2, -1);
                 Path profile = enhancer.endProfiling();
                 JSONObject evidence = FullStreamingBenchmark.profileSummary(new String(boundedFile(profile, MAX_PROFILE_BYTES), StandardCharsets.UTF_8));
                 FullStreamingBenchmark.requireWarmupCallCount(evidence);
@@ -289,6 +313,7 @@ final class GpuResourceProbe {
                             || !Boolean.TRUE.equals(gpuEvidence.get("qnn_kernel_counts_match_expected_calls")))
                         throw new IOException("Full GPU warm-up has no balanced QNN provider execution");
                 } else if (!cpuOnly(evidence)) throw new IOException("CPU reference warm-up did not execute entirely on CPU");
+                if (telemetry != null) telemetry.mark("legacy_gpu", prefix, "reset", 2, -1);
                 enhancer.reset();
                 stage = prefix + ".unprofiled_sequence";
                 float[] accumulated = new float[CALLS * CHUNK], input = new float[CHUNK];
@@ -301,9 +326,13 @@ final class GpuResourceProbe {
                     Arrays.fill(input, 0);
                     int count = Math.min(CHUNK, audio.length - call * CHUNK);
                     if (count > 0) System.arraycopy(audio, call * CHUNK, input, 0, count);
+                    if (telemetry != null) telemetry.mark("legacy_gpu", prefix, "audio", 2, call);
+                    long traceStart = telemetry == null ? 0 : SystemClock.elapsedRealtimeNanos();
                     long cpu = android.os.Process.getElapsedCpuTime(), start = System.nanoTime();
                     float[] output = enhancer.process(input);
-                    times[call] = elapsed(start); cpuMs += Math.max(0, android.os.Process.getElapsedCpuTime() - cpu);
+                    times[call] = elapsed(start);
+                    long callCpuMs = Math.max(0, android.os.Process.getElapsedCpuTime() - cpu); cpuMs += callCpuMs;
+                    if (telemetry != null) telemetry.recordCall(traceStart, SystemClock.elapsedRealtimeNanos(), times[call], callCpuMs);
                     finite(output);
                     if (output.length != (call == 0 ? 640 : CHUNK) || written + output.length > accumulated.length)
                         throw new IOException("Full streaming output length mismatch");
@@ -312,9 +341,13 @@ final class GpuResourceProbe {
                 }
                 checkBudget(deadline);
                 stage = prefix + ".flush";
+                if (telemetry != null) telemetry.mark("legacy_gpu", prefix, "flush", 2, 0);
+                long flushTraceStart = telemetry == null ? 0 : SystemClock.elapsedRealtimeNanos();
                 long cpu = android.os.Process.getElapsedCpuTime(), start = System.nanoTime();
                 float[] tail = enhancer.flush();
-                double flushMs = elapsed(start); cpuMs += Math.max(0, android.os.Process.getElapsedCpuTime() - cpu);
+                double flushMs = elapsed(start);
+                long flushCpuMs = Math.max(0, android.os.Process.getElapsedCpuTime() - cpu); cpuMs += flushCpuMs;
+                if (telemetry != null) telemetry.recordCall(flushTraceStart, SystemClock.elapsedRealtimeNanos(), flushMs, flushCpuMs);
                 finite(tail);
                 if (tail.length != 160 || written + tail.length != accumulated.length)
                     throw new IOException("Full streaming flush count mismatch");
@@ -328,6 +361,7 @@ final class GpuResourceProbe {
                 put(result, "process_cpu_time_scope", "Process-wide CPU milliseconds across all app threads during measured calls and flush; not energy or isolated kernel cycles");
                 put(result, "input_samples", audio.length); put(result, "trimmed_output_samples", trimmed.length);
                 put(result, "all_output_samples_finite", true);
+                if (telemetry != null) telemetry.mark("legacy_gpu", prefix, "save_outputs", 2, -1);
                 put(result, "saved_public_output", FullStreamingBenchmark.saveAudio(directory, prefix, trimmed));
                 if (gpu) {
                     JSONObject identity = logs.finish();
@@ -336,6 +370,7 @@ final class GpuResourceProbe {
                 }
                 put(result, "status", gpu ? result.optBoolean("gpu_backend_execution_verified", false)
                         ? "VERIFIED_DIRECT_GPU_FINITE_SEQUENCE" : "GPU_BACKEND_IDENTITY_UNVERIFIED" : "VERIFIED_CPU_REFERENCE");
+                if (telemetry != null) telemetry.mark("legacy_gpu", prefix, "cleanup", 2, -1);
                 return trimmed;
             }
         } catch (Exception | LinkageError error) {
@@ -343,6 +378,8 @@ final class GpuResourceProbe {
             put(result, "failure_stage", stage); put(result, "error", error.toString());
             put(result, "error_details", io.github.reuse.live.EnhancementSession.boundedErrorDetails(error));
             return null;
+        } finally {
+            if (telemetry != null) telemetry.mark("legacy_gpu", prefix, "cleanup", 2, -1);
         }
     }
 

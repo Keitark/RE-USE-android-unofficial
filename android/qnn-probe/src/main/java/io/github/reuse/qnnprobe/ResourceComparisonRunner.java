@@ -42,6 +42,7 @@ final class ResourceComparisonRunner {
         JSONArray errors = new JSONArray(), cpuTrials = new JSONArray(), htpTrials = new JSONArray();
         put(report, "errors", errors); put(report, "cpu_trials", cpuTrials); put(report, "htp_trials", htpTrials);
         Path directory = null;
+        BenchmarkTelemetry telemetry = null;
         long began = System.nanoTime(), deadline = began + BUDGET_NS;
         String stage = "resource.initialize";
         try {
@@ -56,11 +57,15 @@ final class ResourceComparisonRunner {
             String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(new Date());
             directory = captures.resolve("resource-" + stamp + "-" + UUID.randomUUID().toString().substring(0, 8));
             Files.createDirectory(directory);
+            telemetry = BenchmarkTelemetry.start(application, directory);
+            telemetry.mark("resource", "host", "initialize", 0, -1);
             put(report, "schema_version", 1); put(report, "source", "resource_comparison_public_audio");
             put(report, "app_version", BuildConfig.VERSION_NAME); put(report, "microphone_started", false);
             put(report, "audio_captured", false); put(report, "audio_quality_verified", false);
             put(report, "live_queue_or_playout_verified", false); put(report, "automatic_configuration_applied", false);
             put(report, "status", "RUNNING"); put(report, "soft_budget_seconds", 600);
+            put(report, "benchmark_telemetry_instrumented", true);
+            put(report, "benchmark_telemetry_scope", "Concurrent clock, temperature and load sampling can affect wall time and is included in process-wide CPU time; logging is observational, not a controlled performance comparison.");
             put(report, "budget_scope", "Cooperative checks between synchronous calls and stages. Native loading, compilation or execution is not forcibly interrupted and can exceed the wall budget.");
             put(report, "scope", "Available-resource inventory, isolated prerequisites, unpaced full-model CPU-thread/HTP trials and direct GPU experiments on packaged public data. No microphone capture, live queue, speaker playout, energy or perceptual-quality acceptance.");
             put(report, "comparison_limits", "CPU pool-size order is 1,2,3,4,6,8,8,6,4,3,2,1; each model has two repeats. Pool size does not prove active/pinned cores; affinity and spinning policy are unchanged. HTP balanced/burst and GPU follow sequentially. Clocks, thermal conditions and backend order are not controlled. CPU process time includes all app threads and is not energy; provider evidence covers warm-up only for full streaming trials.");
@@ -75,6 +80,7 @@ final class ResourceComparisonRunner {
             };
 
             stage = "resource.runtime.initialize_info";
+            telemetry.mark("resource", "host", "runtime_initialize", 0, -1);
             checkpoint(report, directory, stage); guarded.update("Preparing runtime and local diagnostics…");
             try {
                 OrtEnvironment environment = OrtEnvironment.getEnvironment(OrtLoggingLevel.ORT_LOGGING_LEVEL_INFO);
@@ -85,12 +91,14 @@ final class ResourceComparisonRunner {
             } catch (Exception | LinkageError error) { recordError(report, errors, stage, error); }
 
             stage = "resource.inventory";
+            telemetry.mark("resource", "host", "inventory", 0, -1);
             checkpoint(report, directory, stage); guarded.update("Inspecting CPU and graphics resources…");
             try { put(report, "inventory", ResourceInventory.collect(application)); }
             catch (Exception | LinkageError error) { recordError(report, errors, stage, error); }
             ResourceComparisonPolicy.checkContinue(cancelled, System.nanoTime(), deadline);
 
             stage = "resource.vulkan_compute_smoke";
+            telemetry.mark("resource", "vulkan_smoke", "execute", 0, -1);
             checkpoint(report, directory, stage); guarded.update("Checking independent Vulkan compute availability…");
             try { put(report, "vulkan", VulkanResourceProbe.run()); }
             catch (CancellationException | ResourceComparisonPolicy.BudgetExceededException stop) { throw stop; }
@@ -98,6 +106,7 @@ final class ResourceComparisonRunner {
             ResourceComparisonPolicy.checkContinue(cancelled, System.nanoTime(), deadline);
 
             stage = "resource.isolated_prerequisites";
+            telemetry.mark("resource", "isolated_prerequisites", "execute", 0, -1);
             checkpoint(report, directory, stage);
             QnnProbeRunner.Result prerequisites;
             try {
@@ -116,6 +125,7 @@ final class ResourceComparisonRunner {
                 int repeat = ++repeats[threads];
                 String key = ResourceComparisonPolicy.trialKey(threads, repeat);
                 stage = "resource." + key;
+                telemetry.mark(key, "host", "trial_prepare", threads, -1);
                 JSONObject trial = new JSONObject(); cpuTrials.put(trial);
                 put(trial, "trial_key", key); put(trial, "threads", threads); put(trial, "repeat", repeat);
                 checkpoint(report, directory, stage);
@@ -123,11 +133,12 @@ final class ResourceComparisonRunner {
                     QnnProbeRunner.Result source = cloneResult(prerequisites, directory);
                     QnnProbeRunner.Result completed = new FullStreamingBenchmark(application).run(source,
                             prefixed(guarded, "CPU " + threads + " threads · repeat " + repeat + "/2 · "),
-                            threads, false, "balanced", key);
+                            threads, false, "balanced", key, telemetry);
                     JSONObject benchmark = completed.diagnostics.optJSONObject(key);
                     if (benchmark == null) throw new IOException("Full CPU benchmark returned no trial result");
                     put(trial, "benchmark", benchmark);
                     ResourceComparisonPolicy.checkContinue(cancelled, System.nanoTime(), deadline);
+                    telemetry.mark(key, "host", "parity", threads, -1);
                     put(trial, "parity", compareCpuOutputs(benchmark, key, threads, directory, references));
                 } catch (CancellationException | ResourceComparisonPolicy.BudgetExceededException stop) { throw stop; }
                 catch (Exception | LinkageError error) { recordTrialError(trial, errors, stage, error); }
@@ -139,6 +150,7 @@ final class ResourceComparisonRunner {
             for (String mode : new String[]{"balanced", "burst"}) {
                 ResourceComparisonPolicy.checkContinue(cancelled, System.nanoTime(), deadline);
                 String key = "htp_" + mode; stage = "resource." + key;
+                telemetry.mark(key, "host", "trial_prepare", 2, -1);
                 JSONObject trial = new JSONObject(); htpTrials.put(trial);
                 put(trial, "trial_key", key); put(trial, "threads", 2); put(trial, "htp_performance_mode", mode);
                 checkpoint(report, directory, stage);
@@ -149,7 +161,7 @@ final class ResourceComparisonRunner {
                 try {
                     QnnProbeRunner.Result source = cloneResult(prerequisites, directory);
                     QnnProbeRunner.Result completed = new FullStreamingBenchmark(application).run(source,
-                            prefixed(guarded, "HTP " + mode + " with CPU controls · "), 2, true, mode, key);
+                            prefixed(guarded, "HTP " + mode + " with CPU controls · "), 2, true, mode, key, telemetry);
                     JSONObject benchmark = completed.diagnostics.optJSONObject(key);
                     if (benchmark == null) throw new IOException("Full HTP benchmark returned no trial result");
                     put(trial, "benchmark", benchmark); put(trial, "status", benchmark.optString("status"));
@@ -159,11 +171,12 @@ final class ResourceComparisonRunner {
             }
             ResourceComparisonPolicy.checkContinue(cancelled, System.nanoTime(), deadline);
             stage = "resource.direct_gpu";
+            telemetry.mark("legacy_gpu", "host", "prepare", 0, -1);
             checkpoint(report, directory, stage); guarded.update("Checking direct Qualcomm GPU execution…");
             if (!registrationCleanupPassed) {
                 JSONObject skipped = new JSONObject(); put(skipped, "status", "SKIPPED_PREREQUISITE_CLEANUP_INCOMPLETE");
                 put(skipped, "gpu_backend_execution_verified", false); put(report, "gpu", skipped);
-            } else try { put(report, "gpu", GpuResourceProbe.run(application, directory.toFile(), guarded)); }
+            } else try { put(report, "gpu", GpuResourceProbe.run(application, directory.toFile(), guarded, telemetry)); }
             catch (CancellationException | ResourceComparisonPolicy.BudgetExceededException stop) { throw stop; }
             catch (Exception | LinkageError error) { recordError(report, errors, stage, error); }
             ResourceComparisonPolicy.checkContinue(cancelled, System.nanoTime(), deadline);
@@ -179,6 +192,11 @@ final class ResourceComparisonRunner {
             put(report, "status", "ERROR"); put(report, "completed_all_stages", false);
             recordError(report, errors, stage, error);
         } finally {
+            if (telemetry != null) {
+                telemetry.mark("resource", "host", "complete", 0, -1);
+                telemetry.close();
+                put(report, "benchmark_telemetry", telemetry.summary());
+            }
             put(report, "cpu_summary", ResourceComparisonPolicy.summarizeCpu(cpuTrials));
             put(report, "final_stage", stage); put(report, "total_wall_ms", (System.nanoTime() - began) / 1e6);
             put(report, "audio_quality_verified", false); put(report, "microphone_started", false);

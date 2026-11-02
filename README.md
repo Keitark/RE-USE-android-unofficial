@@ -124,6 +124,10 @@ remain unverified. The guide also explains the measured CPU result: four threads
 reduced short-clip FP32 wall time from **48.7 to 37.9 ms per 100 ms call**, while
 using more total process CPU time. This did not change model precision or weights.
 
+The [benchmark telemetry guide](docs/benchmark-telemetry.md) explains CPU clock,
+temperature and process-load logging, Android's system-load restrictions, and
+the optional connected ADB collector for investigating variation between runs.
+
 The demo is an adapter around reusable AARs. Both the phone app and optional G2
 companion consume the same enhancement pipeline.
 

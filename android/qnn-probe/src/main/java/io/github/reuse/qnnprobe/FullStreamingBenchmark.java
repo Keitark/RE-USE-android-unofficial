@@ -2,6 +2,7 @@ package io.github.reuse.qnnprobe;
 
 import android.content.Context;
 import android.os.PowerManager;
+import android.os.SystemClock;
 import ai.onnxruntime.OrtEnvironment;
 import io.github.reuse.ChunkedReuseEnhancer;
 import io.github.reuse.ReuseConfig;
@@ -78,6 +79,12 @@ final class FullStreamingBenchmark {
     /** Resource trials share verified fixtures, while keeping each trial's outputs separate. */
     QnnProbeRunner.Result run(QnnProbeRunner.Result groupedResult, QnnProbeRunner.Progress progress,
                               int threads, boolean includeHtp, String htpPerformanceMode, String reportKey) {
+        return run(groupedResult, progress, threads, includeHtp, htpPerformanceMode, reportKey, null);
+    }
+
+    QnnProbeRunner.Result run(QnnProbeRunner.Result groupedResult, QnnProbeRunner.Progress progress,
+                              int threads, boolean includeHtp, String htpPerformanceMode, String reportKey,
+                              BenchmarkTelemetry telemetry) {
         validateOptions(threads, htpPerformanceMode, reportKey);
         String outputPrefix = outputPrefix(reportKey);
         JSONObject report = groupedResult.diagnostics;
@@ -105,6 +112,8 @@ final class FullStreamingBenchmark {
         put(benchmark, "htp_performance_mode", includeHtp ? htpPerformanceMode : JSONObject.NULL);
         put(benchmark, "profiling_protocol", "three_zero_warmup_calls_then_unprofiled_sequence");
         put(benchmark, "timed_calls_profiled", false);
+        put(benchmark, "benchmark_telemetry_instrumented", telemetry != null);
+        if (telemetry != null) put(benchmark, "benchmark_telemetry_scope", "Concurrent telemetry overhead is present; call-event enqueue happens after wall/process-CPU snapshots, and process CPU time includes sampler work.");
         put(benchmark, "warmup_calls_per_backend", WARMUP_CALLS);
         JSONObject backends = new JSONObject();
         put(benchmark, "backends", backends);
@@ -200,7 +209,7 @@ final class FullStreamingBenchmark {
                     continue;
                 }
                 float[] output = runBackend(mode, files, audio, result, report, directory, progress,
-                        threads, htpPerformanceMode, outputPrefix);
+                        threads, htpPerformanceMode, outputPrefix, telemetry);
                 if (output != null) outputs.put(mode, output);
                 allComplete &= result.optBoolean("execution_verified", false);
             }
@@ -249,7 +258,8 @@ final class FullStreamingBenchmark {
 
     private float[] runBackend(Mode mode, ModelFiles files, float[] audio, JSONObject result,
                                JSONObject report, Path directory, QnnProbeRunner.Progress progress,
-                               int threads, String htpPerformanceMode, String outputPrefix) {
+                               int threads, String htpPerformanceMode, String outputPrefix,
+                               BenchmarkTelemetry telemetry) {
         String stage = "full." + mode.key + ".initialize";
         long began = System.nanoTime();
         float[] trimmed = null;
@@ -271,6 +281,7 @@ final class FullStreamingBenchmark {
             stage = "full." + mode.key + ".session_create_compile";
             checkpoint(report, directory, stage);
             progress.update("Complete public clip · " + mode.name().replace('_', ' ') + " · preparing…");
+            if (telemetry != null) telemetry.mark(outputPrefix, mode.key, "compile", threads, -1);
             long compilationBegan = System.nanoTime();
             try (QnnHtpBackend qnn = mode == Mode.QNN_HTP
                     ? new QnnHtpBackend(context, profilePrefix, true, htpPerformanceMode) : null) {
@@ -282,6 +293,7 @@ final class FullStreamingBenchmark {
                     put(result, "enhancer_execution_diagnostics", new JSONObject(enhancer.executionDiagnostics()));
                     double[] warmupMs = new double[WARMUP_CALLS];
                     for (int i = 0; i < WARMUP_CALLS; i++) {
+                        if (telemetry != null) telemetry.mark(outputPrefix, mode.key, "warmup", threads, i);
                         stage = "full." + mode.key + ".warmup." + (i + 1);
                         checkpoint(report, directory, stage);
                         long started = System.nanoTime();
@@ -291,6 +303,7 @@ final class FullStreamingBenchmark {
                     }
                     put(result, "warmup_call_wall_ms", numericArray(warmupMs));
                     stage = "full." + mode.key + ".verify_warmup_profile";
+                    if (telemetry != null) telemetry.mark(outputPrefix, mode.key, "verify_profile", threads, -1);
                     checkpoint(report, directory, stage);
                     Path profile = enhancer.endProfiling();
                     JSONObject evidence = profileSummary(new String(boundedProfileFile(profile), StandardCharsets.UTF_8));
@@ -309,6 +322,7 @@ final class FullStreamingBenchmark {
                     put(result, "warmup_provider_execution_verified", true);
                     stage = "full." + mode.key + ".reset";
                     checkpoint(report, directory, stage);
+                    if (telemetry != null) telemetry.mark(outputPrefix, mode.key, "reset", threads, -1);
                     enhancer.reset();
                     float[] accumulated = new float[EXPECTED_AUDIO_CALLS * CHUNK];
                     float[] input = new float[CHUNK];
@@ -325,12 +339,16 @@ final class FullStreamingBenchmark {
                         Arrays.fill(input, 0);
                         int available = Math.min(CHUNK, audio.length - call * CHUNK);
                         if (available > 0) System.arraycopy(audio, call * CHUNK, input, 0, available);
+                        if (telemetry != null) telemetry.mark(outputPrefix, mode.key, "audio", threads, call);
+                        long traceStart = telemetry == null ? 0 : SystemClock.elapsedRealtimeNanos();
                         long processCpuBegan = android.os.Process.getElapsedCpuTime();
                         long started = System.nanoTime();
                         float[] output = enhancer.process(input);
                         milliseconds[call] = elapsed(started);
                         processCpuMilliseconds[call] = processCpuDeltaMillis(processCpuBegan,
                                 android.os.Process.getElapsedCpuTime());
+                        if (telemetry != null) telemetry.recordCall(traceStart, SystemClock.elapsedRealtimeNanos(),
+                                milliseconds[call], (long) processCpuMilliseconds[call]);
                         requireFinite(output);
                         int expected = call == 0 ? CHUNK - 160 : CHUNK;
                         if (output.length != expected || written + output.length > accumulated.length)
@@ -341,11 +359,14 @@ final class FullStreamingBenchmark {
                     put(result, "completed_audio_calls", EXPECTED_AUDIO_CALLS);
                     stage = "full." + mode.key + ".flush";
                     checkpoint(report, directory, stage);
+                    if (telemetry != null) telemetry.mark(outputPrefix, mode.key, "flush", threads, 0);
+                    long flushTraceStart = telemetry == null ? 0 : SystemClock.elapsedRealtimeNanos();
                     long flushCpuBegan = android.os.Process.getElapsedCpuTime();
                     long flushBegan = System.nanoTime();
                     float[] tail = enhancer.flush();
                     double flushMs = elapsed(flushBegan);
                     double flushCpuMs = processCpuDeltaMillis(flushCpuBegan, android.os.Process.getElapsedCpuTime());
+                    if (telemetry != null) telemetry.recordCall(flushTraceStart, SystemClock.elapsedRealtimeNanos(), flushMs, (long) flushCpuMs);
                     requireFinite(tail);
                     if (tail.length != 160 || written + tail.length != accumulated.length)
                         throw new IOException("Unexpected final streaming synthesis tail");
@@ -366,12 +387,15 @@ final class FullStreamingBenchmark {
                     put(result, "trimmed_output_samples", trimmed.length);
                     put(result, "all_output_samples_finite", true);
                     stage = "full." + mode.key + ".save_public_outputs";
+                    if (telemetry != null) telemetry.mark(outputPrefix, mode.key, "save_outputs", threads, -1);
                     checkpoint(report, directory, stage);
                     put(result, "saved_public_output", saveAudio(directory, outputPrefix + "-" + mode.key.replace('_', '-'), trimmed));
                     stage = "full." + mode.key + ".close_enhancer";
+                    if (telemetry != null) telemetry.mark(outputPrefix, mode.key, "cleanup", threads, -1);
                     checkpoint(report, directory, stage);
                 }
                 stage = "full." + mode.key + ".close_backend";
+                if (telemetry != null) telemetry.mark(outputPrefix, mode.key, "cleanup", threads, -1);
                 checkpoint(report, directory, stage);
             }
             put(result, "execution_verified", true);
@@ -384,6 +408,7 @@ final class FullStreamingBenchmark {
             put(result, "error", error.toString());
             put(result, "error_details", stackTrace(error));
         } finally {
+            if (telemetry != null) telemetry.mark(outputPrefix, mode.key, "cleanup", threads, -1);
             put(result, "thermal_state_after", thermalSnapshot());
             put(result, "backend_total_wall_ms", elapsed(began));
             put(result, "final_stage", stage);

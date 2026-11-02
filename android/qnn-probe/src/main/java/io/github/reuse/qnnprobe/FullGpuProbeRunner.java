@@ -1,6 +1,7 @@
 package io.github.reuse.qnnprobe;
 
 import android.content.Context;
+import android.os.SystemClock;
 import ai.onnxruntime.OrtEnvironment;
 import ai.onnxruntime.OrtLoggingLevel;
 import io.github.reuse.ChunkedReuseEnhancer;
@@ -62,6 +63,7 @@ final class FullGpuProbeRunner {
     static Result run(Context context, QnnProbeRunner.Progress progress, BooleanSupplier cancelled) {
         JSONObject report = new JSONObject();
         Path directory = null;
+        BenchmarkTelemetry telemetry = null;
         long began = System.nanoTime(), deadline = began + BUDGET_NS;
         String stage = "full_gpu.initialize";
         put(report, "schema_version", 1);
@@ -87,9 +89,14 @@ final class FullGpuProbeRunner {
                 throw new IllegalArgumentException("Context, progress and cancellation supplier are required");
             Context application = context.getApplicationContext();
             directory = captureDirectory(application);
+            telemetry = BenchmarkTelemetry.start(application, directory);
+            telemetry.mark("strict_full_gpu", "host", "initialize", THREADS, -1);
+            put(report, "benchmark_telemetry_instrumented", true);
+            put(report, "benchmark_telemetry_scope", "Concurrent clock, temperature and load sampling can affect wall time; process-wide CPU time includes sampler work. Call-event enqueue occurs after both timing snapshots.");
             checkpoint(report, directory, stage);
             checkContinue(cancelled, deadline);
             stage = "full_gpu.runtime.initialize_info";
+            telemetry.mark("strict_full_gpu", "host", "runtime_initialize", THREADS, -1);
             checkpoint(report, directory, stage); progress.update("Preparing strict neural GPU test…");
             OrtEnvironment environment = OrtEnvironment.getEnvironment(OrtLoggingLevel.ORT_LOGGING_LEVEL_INFO);
             environment.setTelemetry(false);
@@ -97,6 +104,7 @@ final class FullGpuProbeRunner {
             put(report, "ort_environment_scope", "Process-wide singleton; an environment initialized earlier may retain its earlier logging level. Missing native identity logs withhold GPU verification.");
 
             stage = "full_gpu.assets.validate";
+            telemetry.mark("strict_full_gpu", "host", "validate_assets", THREADS, -1);
             checkpoint(report, directory, stage); checkContinue(cancelled, deadline);
             JSONObject top = json(asset(application, "manifest.json"));
             JSONObject full = top.getJSONObject("full_stream"), input = full.getJSONObject("input");
@@ -128,13 +136,14 @@ final class FullGpuProbeRunner {
             JSONObject cpu = new JSONObject(); put(report, "cpu_reference", cpu);
             checkpoint(report, directory, stage);
             float[] reference = completeStream(application, baseline, audio, directory, null, cpu,
-                    report, "cpu-reference", deadline, cancelled, progress);
+                    report, "cpu-reference", deadline, cancelled, progress, telemetry);
             stage = "full_gpu.full_neural_gpu";
             JSONObject gpu = new JSONObject(); put(report, "full_neural_gpu", gpu);
             checkpoint(report, directory, stage); checkContinue(cancelled, deadline);
             float[] actual = completeStream(application, candidate, audio, directory, dumps, gpu,
-                    report, "full-gpu", deadline, cancelled, progress);
+                    report, "full-gpu", deadline, cancelled, progress, telemetry);
             stage = "full_gpu.whole_wave_compare";
+            telemetry.mark("strict_full_gpu", "host", "waveform_comparison", THREADS, -1);
             checkpoint(report, directory, stage); checkContinue(cancelled, deadline);
             JSONObject comparison = FullStreamingBenchmark.audioComparison(actual, reference);
             boolean numerical = GpuResourceProbe.wholeNumericalPass(comparison.optDouble("max_abs", Double.NaN),
@@ -161,6 +170,11 @@ final class FullGpuProbeRunner {
             put(report, "status", stopStatus(error));
             put(report, "failure_stage", report.optString("last_stage", stage)); recordError(report, error);
         } finally {
+            if (telemetry != null) {
+                telemetry.mark("strict_full_gpu", "host", "complete", THREADS, -1);
+                telemetry.close();
+                put(report, "benchmark_telemetry", telemetry.summary());
+            }
             put(report, "total_wall_ms", elapsed(began)); put(report, "final_stage", stage);
             if (directory != null) {
                 try { inventoryDumps(report, directory.resolve("qnn-private-graphs")); }
@@ -174,11 +188,13 @@ final class FullGpuProbeRunner {
 
     private static float[] completeStream(Context context, ModelFiles model, float[] audio, Path directory,
                                            Path dumpDirectory, JSONObject result, JSONObject report, String prefix,
-                                           long deadline, BooleanSupplier cancelled, QnnProbeRunner.Progress progress) throws Exception {
+                                           long deadline, BooleanSupplier cancelled, QnnProbeRunner.Progress progress,
+                                           BenchmarkTelemetry telemetry) throws Exception {
         boolean gpu = dumpDirectory != null;
         String stage = prefix + ".before_load";
         put(result, "status", "RUNNING"); put(result, "cpu_intra_op_threads", THREADS);
         put(result, "cpu_inter_op_threads", 1); put(result, "timed_calls_profiled", false);
+        put(result, "benchmark_telemetry_instrumented", telemetry != null);
         put(result, "cpu_ep_fallback_requested_disabled", gpu); put(result, "cpu_ep_fallback_disabled", false);
         put(result, "gpu_backend_execution_verified", false); put(result, "full_neural_gpu_verified", false);
         put(result, "provider_verification_scope", "Exactly three profiled zero-input warm-up calls, then end profiling and reset all streaming state before 65 unprofiled audio calls and one flush.");
@@ -191,6 +207,7 @@ final class FullGpuProbeRunner {
         try {
             checkpoint(report, directory, stage); checkContinue(cancelled, deadline);
             progress.update(gpu ? "Compiling full neural graph for Adreno · CPU fallback disabled…" : "Original FP32 reference · 4 CPU threads…");
+            if (telemetry != null) telemetry.mark("strict_full_gpu", prefix, "before_load", THREADS, -1);
             if (gpu) {
                 logs = new GpuResourceProbe.BackendLogCapture(directory.resolve("full-gpu-backend.log"), 2 * 1024 * 1024);
                 backend = new QnnGpuBackend(context, directory.resolve(prefix + "-ort"), false, dumpDirectory);
@@ -200,6 +217,7 @@ final class FullGpuProbeRunner {
             SessionOptionsConfigurer configurer = gpu ? configuredBackend : (env, options) ->
                     options.enableProfiling(directory.resolve(prefix + "-ort").toString());
             stage = prefix + ".create_compile";
+            if (telemetry != null) telemetry.mark("strict_full_gpu", prefix, "compile", THREADS, -1);
             checkpoint(report, directory, stage); checkContinue(cancelled, deadline);
             long compile = System.nanoTime();
             enhancer = ChunkedReuseEnhancer.create(context, model.model, model.manifest,
@@ -209,10 +227,12 @@ final class FullGpuProbeRunner {
             stage = prefix + ".profiled_warmup";
             checkpoint(report, directory, stage);
             for (int call = 0; call < WARMUP; call++) {
+                if (telemetry != null) telemetry.mark("strict_full_gpu", prefix, "warmup", THREADS, call);
                 checkContinue(cancelled, deadline); requireFinite(enhancer.process(new float[CHUNK]));
                 put(result, "completed_warmup_calls", call + 1);
             }
             Path profile = enhancer.endProfiling(); profileEnded = true;
+            if (telemetry != null) telemetry.mark("strict_full_gpu", prefix, "verify_profile", THREADS, -1);
             put(result, "warmup_profile_file", profile.getFileName().toString());
             JSONObject evidence = FullStreamingBenchmark.profileSummary(new String(boundedFile(profile, MAX_ASSET_BYTES), StandardCharsets.UTF_8));
             FullStreamingBenchmark.requireWarmupCallCount(evidence);
@@ -228,6 +248,7 @@ final class FullGpuProbeRunner {
             }
             put(result, "warmup_provider_verified", providerPass);
             if (!providerPass) throw new IOException(gpu ? "Strict GPU warm-up contains missing/non-QNN execution or unbalanced calls" : "Original reference did not execute entirely on CPU");
+            if (telemetry != null) telemetry.mark("strict_full_gpu", prefix, "reset", THREADS, -1);
             enhancer.reset();
             put(result, "all_streaming_state_reset_after_warmup", true);
             stage = prefix + ".unprofiled_sequence";
@@ -244,10 +265,14 @@ final class FullGpuProbeRunner {
                 Arrays.fill(input, 0);
                 int count = Math.min(CHUNK, audio.length - call * CHUNK);
                 if (count > 0) System.arraycopy(audio, call * CHUNK, input, 0, count);
+                if (telemetry != null) telemetry.mark("strict_full_gpu", prefix, "audio", THREADS, call);
+                long traceStart = telemetry == null ? 0 : SystemClock.elapsedRealtimeNanos();
                 long cpu = android.os.Process.getElapsedCpuTime(), start = System.nanoTime();
                 float[] output = enhancer.process(input);
                 milliseconds[call] = elapsed(start);
                 cpuMilliseconds[call] = FullStreamingBenchmark.processCpuDeltaMillis(cpu, android.os.Process.getElapsedCpuTime());
+                if (telemetry != null) telemetry.recordCall(traceStart, SystemClock.elapsedRealtimeNanos(),
+                        milliseconds[call], (long) cpuMilliseconds[call]);
                 requireFinite(output);
                 if (output.length != expectedAudioOutput(call) || written + output.length > accumulated.length)
                     throw new IOException("Chronological audio output/sample accounting mismatch at call " + call);
@@ -256,9 +281,12 @@ final class FullGpuProbeRunner {
             }
             stage = prefix + ".flush";
             checkpoint(report, directory, stage); checkContinue(cancelled, deadline);
+            if (telemetry != null) telemetry.mark("strict_full_gpu", prefix, "flush", THREADS, 0);
+            long flushTraceStart = telemetry == null ? 0 : SystemClock.elapsedRealtimeNanos();
             long cpu = android.os.Process.getElapsedCpuTime(), start = System.nanoTime();
             float[] tail = enhancer.flush();
             double flushMs = elapsed(start), flushCpu = FullStreamingBenchmark.processCpuDeltaMillis(cpu, android.os.Process.getElapsedCpuTime());
+            if (telemetry != null) telemetry.recordCall(flushTraceStart, SystemClock.elapsedRealtimeNanos(), flushMs, (long) flushCpu);
             requireFinite(tail);
             if (tail.length != 160 || written + tail.length != accumulated.length)
                 throw new IOException("One-flush output accounting mismatch");
@@ -271,6 +299,7 @@ final class FullGpuProbeRunner {
             merge(result, FullStreamingBenchmark.timingSummary(milliseconds, flushMs, INPUT_SAMPLES));
             merge(result, FullStreamingBenchmark.processCpuSummary(cpuMilliseconds, flushCpu, INPUT_SAMPLES));
             float[] output = Arrays.copyOf(accumulated, INPUT_SAMPLES);
+            if (telemetry != null) telemetry.mark("strict_full_gpu", prefix, "save_outputs", THREADS, -1);
             put(result, "saved_public_output", FullStreamingBenchmark.saveAudio(directory, prefix, output));
             put(result, "status", gpu ? "COMPLETE_PENDING_WHOLE_GATE" : "VERIFIED_CPU_REFERENCE");
             return output;
@@ -283,6 +312,7 @@ final class FullGpuProbeRunner {
             put(result, "status", "ERROR"); put(result, "failure_stage", stage); recordError(result, error);
             throw failure;
         } finally {
+            if (telemetry != null) telemetry.mark("strict_full_gpu", prefix, "cleanup", THREADS, -1);
             Exception cleanupFailure = null;
             if (backend != null) {
                 Map<String, Object> configured = backend.diagnostics();

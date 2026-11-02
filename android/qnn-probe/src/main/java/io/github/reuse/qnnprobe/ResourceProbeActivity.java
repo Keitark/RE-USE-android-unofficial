@@ -60,9 +60,10 @@ public final class ResourceProbeActivity extends Activity {
         detail = label("Keep this screen visible. The complete comparison takes several minutes. Leaving the app requests a stop after the current native call.", 14, MUTED, false);
         add(page, detail, 10);
         inventory = button("Inspect available resources", () -> start(false)); add(page, inventory, 18);
-        compare = button("Compare CPU / Adreno / NPU", () -> start(true)); add(page, compare, 10);
+        compare = button("Compare CPU / NPU / legacy GPU", () -> start(true)); add(page, compare, 10);
         fullGpu = button("Test full neural GPU (experimental)", () -> start(2)); add(page, fullGpu, 10);
         add(page, label("Full GPU test disables CPU fallback for the neural graph. Audio transforms still use the CPU. Compatibility and speed are unverified.", 13, MUTED, false), 8);
+        add(page, label("Benchmarks log CPU clocks, readable temperatures and app CPU usage. System load is recorded when Android permits it; connected ADB diagnostics can add system-wide load.", 13, MUTED, false), 8);
         cancel = button("Stop after current call", () -> { CANCELLED.set(true); progress = "Stopping after the current native call…"; });
         add(page, cancel, 10);
         share = button("Share diagnostics (no audio)", this::shareDiagnostics); add(page, share, 18);
@@ -77,6 +78,8 @@ public final class ResourceProbeActivity extends Activity {
             getIntent().removeExtra("run_full_gpu_test"); main.post(() -> start(2));
         } else if (savedInstanceState == null && getIntent().getBooleanExtra("run_resource_tests", false)) {
             getIntent().removeExtra("run_resource_tests"); main.post(() -> start(true));
+        } else if (savedInstanceState == null && getIntent().getBooleanExtra("inspect_resource_telemetry", false)) {
+            getIntent().removeExtra("inspect_resource_telemetry"); main.post(() -> start(false));
         }
     }
 
@@ -100,7 +103,15 @@ public final class ResourceProbeActivity extends Activity {
                     JSONObject report = new JSONObject(); report.put("source", "compute_resource_inventory");
                     report.put("status", "RUNNING"); report.put("microphone_started", false);
                     Files.write(new File(directory, "resource-runs.json").toPath(), report.toString(2).getBytes(StandardCharsets.UTF_8));
-                    report.put("inventory", ResourceInventory.collect(getApplicationContext()));
+                    BenchmarkTelemetry telemetry = BenchmarkTelemetry.start(getApplicationContext(), directory.toPath());
+                    try {
+                        telemetry.mark("inventory", "host", "capabilities", 0, -1);
+                        report.put("inventory", ResourceInventory.collect(getApplicationContext()));
+                        // This is the worker thread, not UI or a timed inference interval.
+                        Thread.sleep(1200);
+                    } finally {
+                        telemetry.close(); report.put("benchmark_telemetry", telemetry.summary());
+                    }
                     report.put("status", CANCELLED.get() ? "CANCELLED" : "INVENTORY_READY");
                     Files.write(new File(directory, "resource-runs.json").toPath(), report.toString(2).getBytes(StandardCharsets.UTF_8));
                     completed = new ResourceComparisonRunner.Result(directory, report);
@@ -182,7 +193,7 @@ public final class ResourceProbeActivity extends Activity {
             text.append("\nA primitive check only; this is not RE-USE acceleration.");
         }
         if (gpu != null) {
-            text.append("\n\nDirect GPU: ").append(gpu.optString("status"));
+            text.append("\n\nLegacy GPU / CPU hybrid: ").append(gpu.optString("status"));
             appendTiming(text, gpu.optJSONObject("full_gpu_hybrid"));
             text.append("\nGPU backend execution verified: ").append(gpu.optBoolean("gpu_backend_execution_verified", false));
         }
@@ -198,6 +209,7 @@ public final class ResourceProbeActivity extends Activity {
             text.append("\nHost STFT and audio synthesis remain CPU work. No microphone or sustained live test.");
         }
         if (report.has("error")) text.append("\n\n").append(report.optString("error"));
+        if (report.has("benchmark_telemetry")) text.append("\n\nCPU clock, temperature and load telemetry is included in Share diagnostics. Sensor availability and sampling overhead are recorded.");
         text.append("\n\nCPU time, thermal snapshots, numerical checks and errors are in Share diagnostics.");
         results.setText(text.toString());
     }
@@ -228,7 +240,8 @@ public final class ResourceProbeActivity extends Activity {
             if (!root.equals(shown.directory.getCanonicalFile().getParentFile())) return;
             ArrayList<Uri> files = new ArrayList<>();
             for (String name : new String[]{"resource-runs.json", "stats.json", "phone-capture.json", "qnn-probe.json", "gpu-resource-probe.json",
-                    "resource-gpu-isolated-backend.log", "resource-gpu-full-backend.log", "full-gpu-probe.json", "full-gpu-backend.log"}) {
+                    "resource-gpu-isolated-backend.log", "resource-gpu-full-backend.log", "full-gpu-probe.json", "full-gpu-backend.log",
+                    "benchmark-telemetry.jsonl", "benchmark-telemetry-summary.json", "adb-system-load.jsonl", "adb-system-load-summary.json"}) {
                 File file = new File(shown.directory, name);
                 if (file.isFile()) files.add(FileProvider.getUriForFile(this, getPackageName() + ".files", file));
             }
