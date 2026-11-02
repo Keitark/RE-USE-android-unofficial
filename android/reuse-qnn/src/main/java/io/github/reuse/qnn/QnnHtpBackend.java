@@ -43,7 +43,7 @@ public final class QnnHtpBackend implements SessionOptionsConfigurer, AutoClosea
     private static final RegistrationPolicy REGISTRATIONS = new RegistrationPolicy();
     private static SharedRegistration shared;
 
-    private final Path nativeDirectory, pluginLibrary, backendLibrary, profilingPrefix;
+    private final Path nativeDirectory, pluginLibrary, backendLibrary, profilingPrefix, diagnosticDirectory;
     private final boolean gpu;
     private final String performanceMode;
     private final boolean allowCpuFallback;
@@ -83,8 +83,18 @@ public final class QnnHtpBackend implements SessionOptionsConfigurer, AutoClosea
         return new QnnHtpBackend(context, profilingPrefix, allowCpuFallback, "balanced", true);
     }
 
+    static QnnHtpBackend gpu(Context context, Path profilingPrefix, boolean allowCpuFallback,
+                             Path diagnosticDirectory) throws IOException {
+        return new QnnHtpBackend(context, profilingPrefix, allowCpuFallback, "balanced", true, diagnosticDirectory);
+    }
+
     private QnnHtpBackend(Context context, Path profilingPrefix, boolean allowCpuFallback,
                           String performanceMode, boolean gpu) throws IOException {
+        this(context, profilingPrefix, allowCpuFallback, performanceMode, gpu, null);
+    }
+
+    private QnnHtpBackend(Context context, Path profilingPrefix, boolean allowCpuFallback,
+                          String performanceMode, boolean gpu, Path diagnosticDirectory) throws IOException {
         validatePerformanceMode(performanceMode);
         this.gpu = gpu;
         this.performanceMode = performanceMode;
@@ -96,6 +106,10 @@ public final class QnnHtpBackend implements SessionOptionsConfigurer, AutoClosea
         pluginLibrary = regularLibrary(nativeDirectory, "libonnxruntime_providers_qnn.so");
         backendLibrary = regularLibrary(nativeDirectory, gpu ? "libQnnGpu.so" : "libQnnHtp.so");
         this.profilingPrefix = privateProfilingPrefix(application, profilingPrefix);
+        this.diagnosticDirectory = diagnosticDirectory == null ? null
+                : privateProfilingPrefix(application, diagnosticDirectory.resolve("qnn-diagnostic")).getParent();
+        if (this.diagnosticDirectory != null && !gpu)
+            throw new IllegalArgumentException("Graph diagnostic options are restricted to the explicit GPU probe");
         this.allowCpuFallback = allowCpuFallback;
         Map<String, Object> values = new LinkedHashMap<>();
         values.put("requested_backend", gpu ? "QNN_GPU" : "QNN_HTP");
@@ -109,6 +123,7 @@ public final class QnnHtpBackend implements SessionOptionsConfigurer, AutoClosea
         values.put("packaged_version_scope", "Pinned Maven versions; not a query of the loaded QNN backend API");
         values.put("native_library_directory", nativeDirectory.toString());
         values.put("profiling_prefix", this.profilingPrefix.toString());
+        if (this.diagnosticDirectory != null) values.put("private_diagnostic_directory", this.diagnosticDirectory.toString());
         values.put("cpu_fallback_allowed", allowCpuFallback);
         values.put("npu_device_selected", false);
         values.put("qnn_execution_verified", false);
@@ -133,7 +148,7 @@ public final class QnnHtpBackend implements SessionOptionsConfigurer, AutoClosea
             if (selectedIndex < 0) throw new IOException(gpu ? "QNN exposed no registration device for the direct GPU probe" : "QNN exposed no NPU device");
             OrtEpDevice selected = registration.qnnDevices.get(selectedIndex);
             boolean gpuDevice = selected.getDevice().getType() == OrtHardwareDevice.OrtHardwareDeviceType.GPU;
-            Map<String, String> providerOptions = providerOptions(backendLibrary, gpu, performanceMode);
+            Map<String, String> providerOptions = providerOptions(backendLibrary, gpu, performanceMode, diagnosticDirectory);
             options.addConfigEntry("session.disable_cpu_ep_fallback", allowCpuFallback ? "0" : "1");
             options.enableProfiling(profilingPrefix.toString());
             if (gpu) options.setSessionLogLevel(OrtLoggingLevel.ORT_LOGGING_LEVEL_INFO);
@@ -293,13 +308,27 @@ public final class QnnHtpBackend implements SessionOptionsConfigurer, AutoClosea
     }
 
     static Map<String, String> providerOptions(Path library, boolean gpu, String mode) {
+        return providerOptions(library, gpu, mode, null);
+    }
+
+    static Map<String, String> providerOptions(Path library, boolean gpu, String mode, Path diagnosticDirectory) {
         validatePerformanceMode(mode);
+        if (diagnosticDirectory != null && !gpu)
+            throw new IllegalArgumentException("Graph diagnostic options require the GPU backend");
         Map<String, String> values = new LinkedHashMap<>();
         values.put("backend_path", library.toString());
         if (!gpu) {
             values.put("htp_performance_mode", mode);
             values.put("offload_graph_io_quantization", "0");
             values.put("enable_htp_fp16_precision", "0");
+        }
+        if (diagnosticDirectory != null) {
+            values.put("dump_qnn_ep_input_graph", "1");
+            values.put("dump_qnn_ep_input_graph_dir", diagnosticDirectory.toString());
+            values.put("dump_json_qnn_graph", "1");
+            values.put("json_qnn_graph_dir", diagnosticDirectory.toString());
+            values.put("enable_framework_op_trace", "1");
+            values.put("framework_op_trace_dir", diagnosticDirectory.toString());
         }
         return Collections.unmodifiableMap(values);
     }

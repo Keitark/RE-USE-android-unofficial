@@ -39,7 +39,7 @@ public final class ResourceProbeActivity extends Activity {
     private static volatile ResourceComparisonRunner.Result completed;
     private final Handler main = new Handler(Looper.getMainLooper());
     private TextView state, detail, results;
-    private Button inventory, compare, cancel, share;
+    private Button inventory, compare, fullGpu, cancel, share;
     private boolean visible;
     private ResourceComparisonRunner.Result shown;
     private final Runnable refresh = new Runnable() {
@@ -61,6 +61,8 @@ public final class ResourceProbeActivity extends Activity {
         add(page, detail, 10);
         inventory = button("Inspect available resources", () -> start(false)); add(page, inventory, 18);
         compare = button("Compare CPU / Adreno / NPU", () -> start(true)); add(page, compare, 10);
+        fullGpu = button("Test full neural GPU (experimental)", () -> start(2)); add(page, fullGpu, 10);
+        add(page, label("Full GPU test disables CPU fallback for the neural graph. Audio transforms still use the CPU. Compatibility and speed are unverified.", 13, MUTED, false), 8);
         cancel = button("Stop after current call", () -> { CANCELLED.set(true); progress = "Stopping after the current native call…"; });
         add(page, cancel, 10);
         share = button("Share diagnostics (no audio)", this::shareDiagnostics); add(page, share, 18);
@@ -71,17 +73,26 @@ public final class ResourceProbeActivity extends Activity {
         shown = completed != null ? completed : restoreLatest();
         if (shown != null) render(shown.diagnostics);
         refreshUi();
-        if (savedInstanceState == null && getIntent().getBooleanExtra("run_resource_tests", false)) {
+        if (savedInstanceState == null && getIntent().getBooleanExtra("run_full_gpu_test", false)) {
+            getIntent().removeExtra("run_full_gpu_test"); main.post(() -> start(2));
+        } else if (savedInstanceState == null && getIntent().getBooleanExtra("run_resource_tests", false)) {
             getIntent().removeExtra("run_resource_tests"); main.post(() -> start(true));
         }
     }
 
     private void start(boolean runComparison) {
+        start(runComparison ? 1 : 0);
+    }
+
+    private void start(int mode) {
         if (!RUNNING.compareAndSet(false, true)) return;
         CANCELLED.set(false); completed = null; progress = "Collecting compute capabilities…";
         WORKER.execute(() -> {
             try {
-                if (runComparison) {
+                if (mode == 2) {
+                    FullGpuProbeRunner.Result result = FullGpuProbeRunner.run(getApplicationContext(), message -> progress = message, CANCELLED::get);
+                    completed = new ResourceComparisonRunner.Result(result.directory, result.diagnostics);
+                } else if (mode == 1) {
                     completed = ResourceComparisonRunner.run(getApplicationContext(), message -> progress = message, CANCELLED::get);
                 } else {
                     File directory = new File(new File(getFilesDir(), "captures"), "resource-inventory-" + UUID.randomUUID());
@@ -103,7 +114,7 @@ public final class ResourceProbeActivity extends Activity {
 
     private void refreshUi() {
         boolean running = RUNNING.get();
-        inventory.setEnabled(!running); compare.setEnabled(!running); cancel.setEnabled(running && !CANCELLED.get());
+        inventory.setEnabled(!running); compare.setEnabled(!running); fullGpu.setEnabled(!running); cancel.setEnabled(running && !CANCELLED.get());
         share.setEnabled(!running && shown != null && shown.directory != null && new File(shown.directory, "resource-runs.json").isFile());
         if (running) { state.setText(CANCELLED.get() ? "Stopping…" : "Testing resources…"); detail.setText(progress); }
         else if (completed != null && completed != shown) { shown = completed; render(shown.diagnostics); }
@@ -175,6 +186,17 @@ public final class ResourceProbeActivity extends Activity {
             appendTiming(text, gpu.optJSONObject("full_gpu_hybrid"));
             text.append("\nGPU backend execution verified: ").append(gpu.optBoolean("gpu_backend_execution_verified", false));
         }
+        JSONObject fullNeural = report.optJSONObject("full_neural_gpu");
+        if (fullNeural != null || report.has("full_neural_gpu_verified")) {
+            text.append("\n\nFull neural GPU (CPU fallback disabled)");
+            appendTiming(text, fullNeural);
+            text.append("\nFull neural GPU verified: ").append(report.optBoolean("full_neural_gpu_verified", false));
+            text.append("\n\nSame-run original FP32 CPU reference");
+            appendTiming(text, report.optJSONObject("cpu_reference"));
+            JSONObject numerical = report.optJSONObject("whole_wave_comparison");
+            if (numerical != null) text.append("\nWhole-wave numerical gate passed: ").append(numerical.optBoolean("fixed_numerical_gate_passed", false));
+            text.append("\nHost STFT and audio synthesis remain CPU work. No microphone or sustained live test.");
+        }
         if (report.has("error")) text.append("\n\n").append(report.optString("error"));
         text.append("\n\nCPU time, thermal snapshots, numerical checks and errors are in Share diagnostics.");
         results.setText(text.toString());
@@ -206,7 +228,7 @@ public final class ResourceProbeActivity extends Activity {
             if (!root.equals(shown.directory.getCanonicalFile().getParentFile())) return;
             ArrayList<Uri> files = new ArrayList<>();
             for (String name : new String[]{"resource-runs.json", "stats.json", "phone-capture.json", "qnn-probe.json", "gpu-resource-probe.json",
-                    "resource-gpu-isolated-backend.log", "resource-gpu-full-backend.log"}) {
+                    "resource-gpu-isolated-backend.log", "resource-gpu-full-backend.log", "full-gpu-probe.json", "full-gpu-backend.log"}) {
                 File file = new File(shown.directory, name);
                 if (file.isFile()) files.add(FileProvider.getUriForFile(this, getPackageName() + ".files", file));
             }

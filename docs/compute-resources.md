@@ -1,5 +1,9 @@
 # Compute-resource comparison APK
 
+For the newer strict GPU reconstruction and an explanation of the CPU thread
+results, see [full neural GPU reconstruction](full-gpu-reconstruction.md).
+This page describes the earlier `0.5.0-resource-probe1` resource matrix.
+
 This test app compares the resources actually accessible to an Android app:
 CPU threading, direct Adreno GPU access, and Qualcomm HTP/NPU modes. It does not
 assume that using an accelerator, more threads, or every processor simultaneously

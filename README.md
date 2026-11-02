@@ -117,6 +117,13 @@ CPU-thread, direct Adreno GPU, Vulkan-compute and HTP-mode comparisons for
 later device testing. It records unsupported paths and numerical failures
 explicitly. Its build is not a new device-performance result.
 
+The [full neural GPU reconstruction](docs/full-gpu-reconstruction.md) removes
+CPU custom operators from a separate FP32 ONNX candidate and adds a strict GPU
+test with CPU fallback disabled. Full-model GPU compatibility and performance
+remain unverified. The guide also explains the measured CPU result: four threads
+reduced short-clip FP32 wall time from **48.7 to 37.9 ms per 100 ms call**, while
+using more total process CPU time. This did not change model precision or weights.
+
 The demo is an adapter around reusable AARs. Both the phone app and optional G2
 companion consume the same enhancement pipeline.
 

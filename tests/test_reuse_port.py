@@ -20,7 +20,7 @@ def deterministic_cpu():
     torch.manual_seed(77123)
 
 
-@pytest.mark.parametrize("length", [1, 3, 81, 161])
+@pytest.mark.parametrize("length", [1, 2, 3, 4, 81, 161])
 def test_parallel_scan_matches_independent_recurrence(length):
     decay = torch.rand(2, length, 3, 4) * 0.3 + 0.7
     drive = torch.randn_like(decay)

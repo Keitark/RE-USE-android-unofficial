@@ -21,6 +21,17 @@ public final class QnnGpuBackend implements SessionOptionsConfigurer, AutoClosea
         delegate = QnnHtpBackend.gpu(context, privateProfilePrefix, allowCpuFallback);
     }
 
+    /**
+     * Adds bounded-probe graph diagnostics in an existing writable app-private directory.
+     * The dumps may contain model structure or weights and are not automatically shared.
+     */
+    public QnnGpuBackend(Context context, Path privateProfilePrefix, boolean allowCpuFallback,
+                         Path privateDiagnosticDirectory) throws IOException {
+        if (privateDiagnosticDirectory == null)
+            throw new IllegalArgumentException("Private diagnostic directory is required");
+        delegate = QnnHtpBackend.gpu(context, privateProfilePrefix, allowCpuFallback, privateDiagnosticDirectory);
+    }
+
     @Override public void configure(OrtEnvironment environment, OrtSession.SessionOptions options)
             throws IOException, OrtException {
         delegate.configure(environment, options);

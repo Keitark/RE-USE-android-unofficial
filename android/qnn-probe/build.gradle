@@ -2,7 +2,7 @@ plugins { id 'com.android.application' }
 
 // The optional adapters select ORT 1.29; stable CPU applications keep ORT 1.23.
 def probeAssetsSource = rootProject.file(providers.gradleProperty('reuseQnnProbeAssets')
-        .getOrElse('.research/qnn-eightconv-assets'))
+        .getOrElse('.research/full-gpu-assets'))
 def probeNoticesSource = rootProject.file('docs/licenses/qnn')
 def generatedAssets = layout.buildDirectory.dir('generated/qnnProbeAssets')
 def reuseNeonFma = providers.gradleProperty('reuseNeonFma').getOrElse('false')
@@ -14,7 +14,8 @@ def copyQnnProbeAssets = tasks.register('copyQnnProbeAssets', Sync) {
     from(probeAssetsSource) { into 'qnn' }
     from(probeNoticesSource) { into 'qnn-notices' }
     doFirst {
-        ['manifest.json', 'reuse_encoder_dilated_conv_u8.onnx'].each { name ->
+        ['manifest.json', 'reuse_encoder_dilated_conv_u8.onnx',
+         'full-gpu-standard/model.onnx', 'full-gpu-standard/validation.json'].each { name ->
             if (!new File(probeAssetsSource, name).isFile())
                 throw new GradleException("Missing QNN probe asset ${name}; generate the probe fixtures before building. See docs/qnn-probe.md.")
         }
@@ -28,8 +29,8 @@ android {
         applicationId 'io.github.reuse.qnnprobe'
         minSdk 29
         targetSdk 35
-        versionCode 4
-        versionName '0.5.0-resource-probe1'
+        versionCode 5
+        versionName '0.6.0-full-gpu-probe1'
         buildConfigField 'String', 'ORT_VERSION', '"1.29.0"'
         buildConfigField 'String', 'QNN_EP_VERSION', '"2.7.0"'
         buildConfigField 'String', 'QNN_RUNTIME_VERSION', '"2.51.0"'

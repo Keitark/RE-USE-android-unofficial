@@ -32,4 +32,18 @@ public final class QnnBackendSelectionTest {
         assertThrows(IllegalArgumentException.class, () -> QnnHtpBackend.validatePerformanceMode(null));
         assertThrows(IllegalArgumentException.class, () -> QnnHtpBackend.validatePerformanceMode("fastest"));
     }
+
+    @Test public void gpuDiagnosticsAreExplicitAndCannotAddHtpOrPrecisionOptions() {
+        Path directory = Path.of("/private/diagnostics");
+        Map<String, String> options = QnnHtpBackend.providerOptions(Path.of("/native/libQnnGpu.so"), true, "balanced", directory);
+        assertEquals(7, options.size());
+        for (String key : List.of("dump_qnn_ep_input_graph", "dump_json_qnn_graph", "enable_framework_op_trace"))
+            assertEquals("1", options.get(key));
+        for (String key : List.of("dump_qnn_ep_input_graph_dir", "json_qnn_graph_dir", "framework_op_trace_dir"))
+            assertEquals(directory.toString(), options.get(key));
+        assertFalse(options.containsKey("enable_htp_fp16_precision"));
+        assertThrows(IllegalArgumentException.class, () ->
+                QnnHtpBackend.providerOptions(Path.of("/native/libQnnHtp.so"), false, "balanced", directory));
+        assertThrows(UnsupportedOperationException.class, () -> options.put("backend_path", "other"));
+    }
 }

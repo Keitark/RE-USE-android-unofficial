@@ -402,8 +402,8 @@ final class GpuResourceProbe {
         if (captureError != null) put(evidence, "capture_error", captureError);
     }
 
-    private static final class BackendLogCapture implements AutoCloseable {
-        private static final int LIMIT = 256 * 1024;
+    static final class BackendLogCapture implements AutoCloseable {
+        private final int limit;
         final String marker = "gpu-" + UUID.randomUUID();
         final Path path;
         final ByteArrayOutputStream data = new ByteArrayOutputStream();
@@ -414,7 +414,14 @@ final class GpuResourceProbe {
         boolean processExited, readerStopped;
         boolean finished;
         BackendLogCapture(Path directory, String phase) {
-            path = directory.resolve("resource-gpu-" + phase + "-backend.log");
+            this(directory.resolve("resource-gpu-" + phase + "-backend.log"), 256 * 1024);
+        }
+
+        BackendLogCapture(Path output, int byteLimit) {
+            if (byteLimit < 1 || byteLimit > 2 * 1024 * 1024)
+                throw new IllegalArgumentException("GPU log capture must be bounded to at most 2 MiB");
+            path = output;
+            limit = byteLimit;
             try {
                 process = new ProcessBuilder("logcat", "-v", "brief", "--pid", Integer.toString(android.os.Process.myPid()), "-T", "1")
                         .redirectErrorStream(true).start();
@@ -424,7 +431,7 @@ final class GpuResourceProbe {
                         byte[] bytes = new byte[4096]; int count;
                         while ((count = input.read(bytes)) != -1) {
                             synchronized (data) {
-                                int available = LIMIT - data.size();
+                                int available = limit - data.size();
                                 if (available <= 0) { truncated = true; process.destroy(); break; }
                                 int written = Math.min(available, count);
                                 data.write(bytes, 0, written);
@@ -468,7 +475,7 @@ final class GpuResourceProbe {
             JSONObject result = backendLogEvidence(new String(bytes, StandardCharsets.UTF_8), marker);
             put(result, "log_file", path.getFileName().toString());
             put(result, "captured_bytes", bytes.length);
-            put(result, "capture_limit_bytes", LIMIT);
+            put(result, "capture_limit_bytes", limit);
             put(result, "own_process_only", true);
             applyCaptureCompletion(result, processExited, readerStopped, truncated, error);
             return result;
