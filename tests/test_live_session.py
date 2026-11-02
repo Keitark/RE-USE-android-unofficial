@@ -32,26 +32,27 @@ def session_java():
     run([cmake, "--build", str(BUILD / "native"), "--config", "Release", "--parallel", "2"], env=env)
     stubs = BUILD / "stubs/io/github/reuse"
     stubs.mkdir(parents=True, exist_ok=True)
-    (stubs / "ReuseConfig.java").write_text("package io.github.reuse; public final class ReuseConfig { public ReuseConfig(int r,int e,int t){} }\n")
     (stubs / "ChunkedReuseEnhancer.java").write_text("""package io.github.reuse;
 import java.nio.file.Path;
 public final class ChunkedReuseEnhancer {
  public ChunkedReuseEnhancer(Path m,Path j,ReuseConfig c,Path l){throw new AssertionError("Injected engine required in host test");}
  public float[] process(float[] a){throw new AssertionError();}
  public float[] flush(){throw new AssertionError();} public void reset(){} public void close(){}
+ public void verifyAcceleratorExecution(){throw new AssertionError();}
+ public java.util.Map<String,Object> executionDiagnostics(){return java.util.Collections.emptyMap();}
 }
 """)
     classes = BUILD / "classes"
     classes.mkdir(exist_ok=True)
     production = ROOT / "android/reuse-audio/src/main/java/io/github/reuse/live"
-    run([javac, "-d", str(classes), str(stubs / "ReuseConfig.java"), str(stubs / "ChunkedReuseEnhancer.java"),
+    run([javac, "-d", str(classes), str(ROOT / "android/reuse/src/main/java/io/github/reuse/ReuseConfig.java"), str(stubs / "ChunkedReuseEnhancer.java"),
          str(production / "FirResampler.java"), str(production / "EnhancementSession.java"),
          str(ROOT / "tests/live/SessionHarness.java")])
     native = BUILD / "native" / ("Release" if os.name == "nt" else "")
     return java, classes, native
 
 
-@pytest.mark.parametrize("case", ["lengths", "overflow", "abort", "empty", "native", "sequence", "duration", "flush", "listener", "snapshots"])
+@pytest.mark.parametrize("case", ["lengths", "overflow", "abort", "empty", "native", "sequence", "duration", "flush", "listener", "snapshots", "backend", "verification"])
 def test_live_session_contract(session_java, case, tmp_path):
     java, classes, native = session_java
     result = run([java, f"-Djava.library.path={native}", "-cp", str(classes),

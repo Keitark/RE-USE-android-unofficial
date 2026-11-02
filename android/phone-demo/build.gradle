@@ -1,5 +1,6 @@
 plugins { id 'com.android.application' }
 
+def gpuExperimental = providers.gradleProperty('reuseGpuExperimental').getOrElse('false') == 'true'
 def modelSource = rootProject.file('models/reuse-8k-exit3-native-chunk5-sequence-pad-softplus-temporal-channelnorm-frequency')
 def generatedAssets = layout.buildDirectory.dir('generated/phoneAssets')
 def copyPhoneAssets = tasks.register('copyPhoneAssets', Sync) {
@@ -9,9 +10,14 @@ def copyPhoneAssets = tasks.register('copyPhoneAssets', Sync) {
         include 'model.onnx', 'manifest.json', 'LICENSE-NVIDIA.txt'
         into 'model'
     }
+    if (gpuExperimental) {
+        from(rootProject.file('.research/ort-gpu-build/runtime-provenance.json')) { into 'gpu-runtime' }
+    }
     doFirst {
         if (!new File(modelSource, 'model.onnx').isFile())
             throw new GradleException('Prepare the verified model with tools/prepare_phone_model.py before building; see docs/phone-demo.md.')
+        if (gpuExperimental && !rootProject.file('.research/ort-gpu-build/runtime-provenance.json').isFile())
+            throw new GradleException('Build the patched GPU-only runtime with tools/build-ort-gpu.ps1 before building this experimental APK.')
     }
 }
 
@@ -19,13 +25,16 @@ android {
     namespace 'io.github.reuse.phone'
     compileSdk 35
     defaultConfig {
-        applicationId 'io.github.reuse.phone'
-        minSdk 26
+        applicationId gpuExperimental ? 'io.github.reuse.phone.gpu' : 'io.github.reuse.phone'
+        minSdk (gpuExperimental ? 29 : 26)
         targetSdk 35
-        versionCode 2
-        versionName '0.1.1'
-        ndk { abiFilters 'arm64-v8a', 'x86_64' }
+        versionCode gpuExperimental ? 3 : 2
+        versionName gpuExperimental ? '0.2.0-gpu-preview1' : '0.1.1'
+        manifestPlaceholders = [demoLabel: gpuExperimental ? 'RE-USE GPU Preview (Unofficial)' : 'RE-USE Demo (Unofficial)']
+        buildConfigField 'boolean', 'GPU_EXPERIMENTAL', gpuExperimental.toString()
+        ndk { abiFilters(*(gpuExperimental ? ['arm64-v8a'] : ['arm64-v8a', 'x86_64'])) }
     }
+    buildFeatures { buildConfig true }
     sourceSets { main { assets.srcDir generatedAssets } }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17

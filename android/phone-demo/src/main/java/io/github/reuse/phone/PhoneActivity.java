@@ -46,9 +46,13 @@ public final class PhoneActivity extends Activity {
     private PhoneCaptureController controller;
     private TextView stateTitle, stateDetail, timer, route, inputCount, performance, comparisonDetail, playbackDetail;
     private Button start, stop, before, after, stopPlayback, share;
+    private Button shareDiagnostics;
     private RadioButton twoThreads, fourThreads;
+    private RadioButton cpuMode, gpuFp32, gpuFp16;
+    private TextView backendStatus;
     private ProgressBar level;
     private File latest;
+    private File latestDiagnostics;
     private MediaPlayer player;
     private AudioManager audioManager;
     private AudioFocusRequest playbackFocus;
@@ -75,6 +79,7 @@ public final class PhoneActivity extends Activity {
                 if (destroyed) return;
                 active = false;
                 phase = "IDLE";
+                rememberDiagnostics(directory);
                 if (validCapture(directory)) {
                     latest = directory;
                     getPreferences(MODE_PRIVATE).edit().putString("last_capture", directory.getName()).apply();
@@ -92,6 +97,10 @@ public final class PhoneActivity extends Activity {
                             : "Processed and saved on this phone.");
                     performance.setText(rtf > 1 ? "Saved · processing was slower than incoming audio" : "Saved · average processing kept up");
                     performance.setTextColor(rtf > 1 ? Color.rgb(255, 198, 142) : MINT);
+                    if (backendStatus != null) backendStatus.setText(
+                            "NNAPI_ACCELERATOR".equals(statistics.get("requested_backend"))
+                                    ? "GPU driver delegation observed during warm-up · hybrid GPU + CPU"
+                                    : "CPU mode · no GPU offload requested");
                 } else {
                     stateTitle.setText("No audio recorded");
                     stateDetail.setText("Tap Start recording and speak into the phone.");
@@ -103,8 +112,11 @@ public final class PhoneActivity extends Activity {
                 if (destroyed) return;
                 active = false;
                 phase = "ERROR";
+                rememberDiagnostics(controller == null ? null : controller.diagnosticsDir());
                 stateTitle.setText("Recording stopped");
                 stateDetail.setText(message == null ? "Unable to record. Please try again." : message);
+                if (backendStatus != null && gpuFp32 != null && !cpuMode.isChecked())
+                    backendStatus.setText("GPU preparation or processing failed. Select CPU to compare; audio was not silently bypassed.");
                 level.setProgress(0);
                 updateControls();
             }
@@ -136,9 +148,11 @@ public final class PhoneActivity extends Activity {
         TextView brand = label("RE-USE · UNOFFICIAL", 14, MINT, true);
         brand.setLetterSpacing(.18f);
         content.addView(brand);
-        TextView title = label("RE-USE Android Library Demo", 30, INK, true);
+        TextView title = label(BuildConfig.GPU_EXPERIMENTAL ? "RE-USE GPU Preview" : "RE-USE Android Library Demo", 30, INK, true);
         margin(content, title, 12, 0);
         margin(content, label("Uses NVIDIA Real-time RE-USE. Not affiliated with or endorsed by NVIDIA.", 13, MUTED, false), 10, 0);
+        if (BuildConfig.GPU_EXPERIMENTAL)
+            margin(content, label("Experimental GPU + CPU processing. Device performance and FP16 audio quality are unverified.", 14, MINT, true), 10, 0);
         margin(content, label("Record your voice. Compare the original with RE-USE enhancement, processed on this phone.", 16, MUTED, false), 12, 22);
 
         LinearLayout capture = card();
@@ -146,6 +160,7 @@ public final class PhoneActivity extends Activity {
         stateTitle = label("Ready to record", 22, INK, true);
         capture.addView(stateTitle);
         stateDetail = label("Speak into the phone after recording starts. Each recording lasts up to 60 seconds.", 15, MUTED, false);
+        stateDetail.setTextIsSelectable(true);
         margin(capture, stateDetail, 8, 18);
         timer = label("00:00 / 01:00", 31, MINT, true);
         capture.addView(timer);
@@ -171,6 +186,21 @@ public final class PhoneActivity extends Activity {
         });
         margin(capture, stop, 8, 0, fullButton());
         margin(capture, label("Processing", 13, MUTED, true), 20, 5);
+        if (BuildConfig.GPU_EXPERIMENTAL) {
+            RadioGroup backends = new RadioGroup(this);
+            backends.setOrientation(RadioGroup.VERTICAL);
+            cpuMode = backendChoice("CPU · reference mode", backends);
+            gpuFp32 = backendChoice("GPU + CPU · FP32", backends);
+            gpuFp16 = backendChoice("GPU + CPU · allow FP16", backends);
+            gpuFp32.setChecked(true);
+            capture.addView(backends);
+            backendStatus = label("GPU requested · startup checks run before recording", 13, MUTED, false);
+            margin(capture, backendStatus, 5, 8);
+            backends.setOnCheckedChangeListener((group, checked) -> backendStatus.setText(
+                    cpuMode.isChecked() ? "CPU mode · no GPU offload requested"
+                            : "GPU requested · supported layers only; Mamba kernels remain on CPU"));
+            margin(capture, label("FP16 permits lower precision in GPU layers. Compare its audio with FP32. CPU thread settings apply to the remaining CPU work.", 12, MUTED, false), 0, 8);
+        }
         RadioGroup threads = new RadioGroup(this);
         threads.setOrientation(RadioGroup.HORIZONTAL);
         twoThreads = new RadioButton(this);
@@ -206,6 +236,11 @@ public final class PhoneActivity extends Activity {
         share = button("Share both WAV files", false);
         share.setOnClickListener(v -> shareRecording());
         margin(comparison, share, 14, 0, fullButton());
+        if (BuildConfig.GPU_EXPERIMENTAL) {
+            shareDiagnostics = button("Share diagnostics (no audio)", false);
+            shareDiagnostics.setOnClickListener(v -> shareDiagnostics());
+            margin(comparison, shareDiagnostics, 9, 0, fullButton());
+        }
 
         margin(content, label("Recording stops when you leave this screen. Audio stays on this phone. Playback is available after recording, to avoid microphone feedback.", 13, MUTED, false), 20, 0);
         margin(content, label("Unofficial, noncommercial research demo using NVIDIA RE-USE.", 12, MUTED, false), 15, 0);
@@ -214,6 +249,10 @@ public final class PhoneActivity extends Activity {
     }
 
     private void showState(PhoneCaptureController.StateSnapshot s) {
+        if (backendStatus != null && !"ERROR".equals(s.phase)) backendStatus.setText(
+                !s.gpuRequested ? "CPU mode · no GPU offload requested"
+                        : s.acceleratorExecuted ? "GPU driver delegation observed · hybrid GPU + CPU"
+                        : "GPU requested · checking driver and delegated execution before recording");
         switch (s.phase) {
             case "PREPARING":
                 stateTitle.setText("Getting RE-USE ready…");
@@ -277,7 +316,9 @@ public final class PhoneActivity extends Activity {
         timer.setText("00:00 / 01:00"); inputCount.setText("0 audio samples"); level.setProgress(0);
         updateControls();
         try {
-            controller.start(twoThreads.isChecked() ? 2 : 4);
+            controller.start(twoThreads.isChecked() ? 2 : 4,
+                    BuildConfig.GPU_EXPERIMENTAL && !cpuMode.isChecked(),
+                    BuildConfig.GPU_EXPERIMENTAL && gpuFp16.isChecked());
         } catch (RuntimeException error) {
             active = false; phase = "ERROR";
             stateTitle.setText("Unable to start");
@@ -304,13 +345,26 @@ public final class PhoneActivity extends Activity {
         start.setEnabled(!active);
         stop.setEnabled(active && !"STOPPING".equals(phase));
         twoThreads.setEnabled(!active); fourThreads.setEnabled(!active);
+        if (cpuMode != null) {
+            cpuMode.setEnabled(!active); gpuFp32.setEnabled(!active); gpuFp16.setEnabled(!active);
+        }
         boolean recorded = validCapture(latest) && !active;
         before.setEnabled(recorded); after.setEnabled(recorded); share.setEnabled(recorded);
+        if (shareDiagnostics != null) shareDiagnostics.setEnabled(!active && validDiagnostics(latestDiagnostics));
         stopPlayback.setVisibility(player == null ? View.GONE : View.VISIBLE);
         playbackDetail.setVisibility(player == null ? View.GONE : View.VISIBLE);
         if (active && visible) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         for (Button button : new Button[]{start, stop, before, after, share}) button.setAlpha(button.isEnabled() ? 1f : .42f);
+    }
+
+    private RadioButton backendChoice(String text, RadioGroup group) {
+        RadioButton choice = new RadioButton(this);
+        choice.setId(View.generateViewId()); choice.setText(text); choice.setTextColor(INK);
+        choice.setTextSize(14); choice.setMinimumHeight(dp(48));
+        choice.setButtonTintList(android.content.res.ColorStateList.valueOf(MINT));
+        group.addView(choice, new RadioGroup.LayoutParams(-1, -2));
+        return choice;
     }
 
     private void play(String name, String description) {
@@ -393,12 +447,51 @@ public final class PhoneActivity extends Activity {
     }
 
     private void restoreCapture() {
+        String diagnostics = getPreferences(MODE_PRIVATE).getString("last_diagnostics", null);
+        if (diagnostics != null && !diagnostics.contains("/") && !diagnostics.contains("\\")) {
+            File saved = new File(new File(getFilesDir(), "captures"), diagnostics);
+            if (validDiagnostics(saved)) latestDiagnostics = saved;
+        }
         String name = getPreferences(MODE_PRIVATE).getString("last_capture", null);
         if (name == null || name.contains("/") || name.contains("\\")) return;
         File directory = new File(new File(getFilesDir(), "captures"), name);
         if (validCapture(directory)) {
             latest = directory;
             comparisonDetail.setText("Your last before/after recording is ready to play or share.");
+        }
+    }
+
+    private void rememberDiagnostics(File directory) {
+        if (!BuildConfig.GPU_EXPERIMENTAL || !validDiagnostics(directory)) return;
+        latestDiagnostics = directory;
+        getPreferences(MODE_PRIVATE).edit().putString("last_diagnostics", directory.getName()).apply();
+    }
+
+    private boolean validDiagnostics(File directory) {
+        if (directory == null) return false;
+        try {
+            File root = new File(getFilesDir(), "captures").getCanonicalFile();
+            return root.equals(directory.getCanonicalFile().getParentFile())
+                    && new File(directory, "stats.json").isFile()
+                    && new File(directory, "phone-capture.json").isFile();
+        } catch (IOException ignored) { return false; }
+    }
+
+    private void shareDiagnostics() {
+        if (active || controller.isActive() || !validDiagnostics(latestDiagnostics)) return;
+        try {
+            ArrayList<Uri> files = new ArrayList<>();
+            for (String name : new String[]{"stats.json", "phone-capture.json"})
+                files.add(FileProvider.getUriForFile(this, getPackageName() + ".files", new File(latestDiagnostics, name)));
+            Intent send = new Intent(Intent.ACTION_SEND_MULTIPLE).setType("application/json")
+                    .putParcelableArrayListExtra(Intent.EXTRA_STREAM, files)
+                    .putExtra(Intent.EXTRA_SUBJECT, "RE-USE GPU preview diagnostics (no audio)")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            ClipData clip = ClipData.newRawUri("RE-USE processing statistics", files.get(0));
+            clip.addItem(new ClipData.Item(files.get(1))); send.setClipData(clip);
+            startActivity(Intent.createChooser(send, "Share diagnostics without audio"));
+        } catch (RuntimeException error) {
+            Toast.makeText(this, "No app is available to share diagnostics.", Toast.LENGTH_SHORT).show();
         }
     }
 

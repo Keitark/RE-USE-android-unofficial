@@ -43,6 +43,16 @@ library AAR. Its distribution includes its own third-party notices.
 The native plugin builds against vendored ONNX Runtime 1.23.2 API headers;
 those headers retain their separate Microsoft MIT license in `native/include`.
 
+The optional GPU preview uses an unofficial modified ORT 1.23.2 runtime from
+upstream commit `a83fc4d58cb48eb68890dd689f94f28288cf2278`. Its MIT-licensed
+device-filter patch and packaging source are in `native/ort-gpu/`. This fork
+changes NNAPI `CPU_DISABLED` to select GPU devices exclusively; it is not a
+Microsoft-maintained release. The experimental AAR/APK retains the same-version
+Java/JNI library, upstream MIT license, full source-version third-party notices,
+patch and provenance under `assets/reuse-gpu-runtime/`. The independent
+runtime-identity JNI bridge in `native/runtime_build_info_jni.cpp` is MIT.
+These runtime licenses do not remove the NVIDIA model restrictions above.
+
 ## Android demo dependencies
 
 The phone demo uses AndroidX Core 1.13.1 and its transitive AndroidX/Kotlin

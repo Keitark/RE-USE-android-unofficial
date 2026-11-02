@@ -89,6 +89,11 @@ is a separate noncausal model, not the checkpoint used by this demo.
 
 ## Build with the libraries
 
+An optional [GPU/CPU preview](docs/gpu-demo.md) adds explicit NNAPI GPU-driver
+selection through a separately built runtime and APK. It retains CPU execution
+for unsupported operators. Physical-device GPU compatibility, quality and
+performance remain unverified; the existing CPU download above is unchanged.
+
 The demo is an adapter around reusable AARs. Both the phone app and optional G2
 companion consume the same enhancement pipeline.
 

@@ -3,7 +3,15 @@ pluginManagement {
 }
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories { google(); mavenCentral() }
+    repositories {
+        if (providers.gradleProperty('reuseGpuExperimental').getOrElse('false') == 'true') {
+            maven {
+                url = uri("${rootDir}/.research/ort-gpu-build/repository")
+                content { includeModule('com.microsoft.onnxruntime', 'onnxruntime-android-gpuonly') }
+            }
+        }
+        google(); mavenCentral()
+    }
 }
 rootProject.name = 'reuse-android'
 include ':reuse', ':benchmark'

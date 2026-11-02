@@ -28,7 +28,7 @@ public final class SessionHarness {
         public void onError(String code, String message, Map<String,Object> s) { error = code; stats = s; done.countDown(); }
     }
     static final class Identity implements EnhancementSession.Engine {
-        float[] pending; boolean first = true, failFlush;
+        float[] pending; boolean first = true, failFlush, failVerification;
         final AtomicInteger closes = new AtomicInteger();
         CountDownLatch entered, release; boolean block; int delayMs;
         public float[] process(float[] input) throws Exception {
@@ -45,6 +45,9 @@ public final class SessionHarness {
         }
         public void reset() { first = true; pending = null; }
         public void close() { closes.incrementAndGet(); }
+        public void verifyAcceleratorExecution() throws Exception {
+            if (failVerification) throw new java.io.IOException("NNAPI delegated no kernels during warm-up");
+        }
     }
     static byte[] input(int samples) {
         byte[] data = new byte[samples * 2];
@@ -186,6 +189,27 @@ public final class SessionHarness {
         require(number(result.stats,"queued_input_samples")==0&&number(result.stats,"dropped_input_samples")==0,"Final queue/drop counts");
         require(engine.closes.get()==1,"Concurrent observation leaked model");waves(root,result,samples);
     }
+    static void requestedBackend(Path root) throws Exception {
+        Result result = new Result();
+        try (EnhancementSession session = new EnhancementSession(root, root, root, result, () -> { }, 4,
+                io.github.reuse.ReuseConfig.Backend.NNAPI_ACCELERATOR, true)) {
+            Map<String,Object> stats = session.statistics();
+            require("NNAPI_ACCELERATOR".equals(stats.get("requested_backend")), "Backend option was lost");
+            require(Boolean.TRUE.equals(stats.get("nnapi_fp16_relaxation_requested")), "FP16 option was lost");
+            require(Boolean.FALSE.equals(stats.get("nnapi_execution_verified")), "An unstarted session claimed execution");
+            require(Boolean.FALSE.equals(stats.get("gpu_execution_verified")), "NNAPI registration claimed GPU proof");
+        }
+    }
+    static void verificationFailure(Path root) throws Exception {
+        Result result = new Result(); Identity engine = new Identity(); engine.failVerification = true;
+        EnhancementSession session = new EnhancementSession(root, result, () -> { }, () -> engine, 8000);
+        session.start(); await(result.done); session.close();
+        require(result.ready.getCount() == 1, "Failed accelerator warm-up allowed microphone readiness");
+        require("PROCESSING_ERROR".equals(result.error), "Verification failure was hidden");
+        require(number(result.stats, "input_samples") == 0 && number(result.stats, "model_calls") == 0,
+                "Verification failure became a recording");
+        require(engine.closes.get() == 1, "Verification failure leaked the model");
+    }
     public static void main(String[] args)throws Exception {
         String kind=args[0];Path dir=Path.of(args[1]);Files.createDirectories(dir);
         if(kind.equals("lengths"))lengths(dir);
@@ -194,6 +218,8 @@ public final class SessionHarness {
         else if(kind.equals("empty"))emptyStop(dir);
         else if(kind.equals("native"))nativeContracts();
         else if(kind.equals("snapshots"))concurrentSnapshots(dir);
+        else if(kind.equals("backend"))requestedBackend(dir);
+        else if(kind.equals("verification"))verificationFailure(dir);
         else failure(dir,kind);
         System.out.println("{\"case\":\""+kind+"\",\"passed\":true}");
     }

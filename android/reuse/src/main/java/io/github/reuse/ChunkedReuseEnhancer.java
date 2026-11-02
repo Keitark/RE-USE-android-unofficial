@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -83,6 +84,7 @@ public final class ChunkedReuseEnhancer implements AutoCloseable {
     private final ChunkedStreamingStft.SpectrumTransform transform = this::infer;
     private OrtSession.SessionOptions options;
     private OrtSession session;
+    private Map<String, Object> executionDiagnostics = Collections.emptyMap();
     private TensorBuffer magnitude;
     private TensorBuffer phase;
     private TensorBuffer real;
@@ -137,6 +139,8 @@ public final class ChunkedReuseEnhancer implements AutoCloseable {
             options.setInterOpNumThreads(1);
             options.addConfigEntry("session.intra_op.allow_spinning", "0");
             options.addConfigEntry("session.inter_op.allow_spinning", "0");
+            BackendSessionOptions.apply(config, options);
+            executionDiagnostics = BackendSessionOptions.diagnostics(config, environment);
             if (manifest.requiresSelectiveScan) {
                 options.registerCustomOpLibrary(customOpLibrary.toAbsolutePath().toString());
             }
@@ -165,6 +169,21 @@ public final class ChunkedReuseEnhancer implements AutoCloseable {
     }
 
     public ReuseConfig config() { return config; }
+
+    /** Requested backend/runtime metadata. Provider availability is not measured GPU coverage. */
+    public Map<String, Object> executionDiagnostics() { return executionDiagnostics; }
+
+    /** Stops startup profiling and verifies NNAPI kernel execution; CPU mode is a no-op. */
+    public synchronized void verifyAcceleratorExecution() throws IOException, OrtException {
+        checkReady();
+        if (config.backend == ReuseConfig.Backend.CPU
+                || Boolean.TRUE.equals(executionDiagnostics.get("nnapi_execution_verified"))) return;
+        executionDiagnostics = BackendSessionOptions.finishVerification(session, executionDiagnostics);
+        if (!Boolean.TRUE.equals(executionDiagnostics.get("nnapi_execution_verified"))) {
+            failed = true;
+            throw new IOException("NNAPI delegated no kernels during warm-up; select CPU mode instead");
+        }
+    }
 
     /** Exactly 100 ms of mono PCM at the configured sample rate. */
     public int inputChunkSamples() { return FRAMES_PER_CALL * config.hopSize; }

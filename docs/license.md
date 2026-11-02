@@ -10,6 +10,7 @@ identifies NSCLv1; the revision and source hashes are recorded in
 | Independently written Java integration/DSP APIs and phone UI | MIT, with the exceptions in the root [`LICENSE`](../LICENSE) |
 | Checkpoint, exported graphs, adapted model/export/optimization Python, and model-specific native code | NVIDIA NSCLv1; noncommercial research and education only |
 | ONNX Runtime 1.23.2 and its API headers | [MIT](https://github.com/microsoft/onnxruntime/blob/v1.23.2/LICENSE), plus its bundled third-party notices |
+| Optional GPU-only ORT device-filter patch, packaging tools and independent runtime-identity JNI bridge | MIT; upstream runtime license and full third-party notices are retained in the experimental AAR/APK |
 | AndroidX Core 1.13.1 | Apache 2.0, as declared in the [official Maven metadata](https://dl.google.com/dl/android/maven2/androidx/core/core/1.13.1/core-1.13.1.pom) |
 
 The native NSCLv1 scope includes `native/selective_scan.cpp`, `native/even/`,

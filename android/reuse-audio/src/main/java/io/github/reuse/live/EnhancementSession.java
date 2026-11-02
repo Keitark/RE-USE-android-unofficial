@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -29,6 +30,8 @@ public final class EnhancementSession implements AutoCloseable {
         float[] flush() throws Exception;
         void reset();
         void close() throws Exception;
+        default void verifyAcceleratorExecution() throws Exception { }
+        default Map<String, Object> executionDiagnostics() { return Collections.emptyMap(); }
     }
     interface EngineFactory { Engine create() throws Exception; }
     private static final int RATE = 16000, CHUNK = 800, QUEUE_SAMPLES = 8000;
@@ -63,6 +66,9 @@ public final class EnhancementSession implements AutoCloseable {
     private final long[] callTimes = new long[1300];
     private int flushCalls;
     private boolean sampleIndexValidation;
+    private ReuseConfig.Backend requestedBackend = ReuseConfig.Backend.CPU;
+    private boolean nnapiUseFp16;
+    private Map<String, Object> backendDiagnostics = Collections.emptyMap();
 
     public EnhancementSession(Path modelDir, Path outputDir, Path customOpLibrary, Listener listener) {
         this(modelDir, outputDir, customOpLibrary, listener, () -> { });
@@ -77,21 +83,39 @@ public final class EnhancementSession implements AutoCloseable {
     /** Configurable CPU threads; existing constructors retain their four-thread configuration. */
     public EnhancementSession(Path modelDir, Path outputDir, Path customOpLibrary, Listener listener,
                               Runnable workerInitializer, int intraOpThreads) {
-        this(outputDir, listener, workerInitializer,
-                modelFactory(modelDir, customOpLibrary, intraOpThreads), QUEUE_SAMPLES);
+        this(modelDir, outputDir, customOpLibrary, listener, workerInitializer, intraOpThreads,
+                ReuseConfig.Backend.CPU, false);
     }
 
-    private static EngineFactory modelFactory(Path modelDir, Path customOpLibrary, int intraOpThreads) {
-        if (intraOpThreads < 1 || intraOpThreads > 16)
-            throw new IllegalArgumentException("Session thread count must be between 1 and 16");
+    /**
+     * Opt-in hybrid NNAPI processing. Verifies delegated work during zero-audio warm-up before
+     * onReady; it does not prove GPU selection on an ordinary NNAPI runtime.
+     */
+    public EnhancementSession(Path modelDir, Path outputDir, Path customOpLibrary, Listener listener,
+                              Runnable workerInitializer, int intraOpThreads,
+                              ReuseConfig.Backend backend, boolean nnapiUseFp16) {
+        this(outputDir, listener, workerInitializer,
+                modelFactory(modelDir, outputDir, customOpLibrary, intraOpThreads, backend, nnapiUseFp16), QUEUE_SAMPLES);
+        this.requestedBackend = backend;
+        this.nnapiUseFp16 = nnapiUseFp16;
+    }
+
+    private static EngineFactory modelFactory(Path modelDir, Path outputDir, Path customOpLibrary,
+                                             int intraOpThreads, ReuseConfig.Backend backend, boolean nnapiUseFp16) {
+        ReuseConfig config = new ReuseConfig(8000, 3, intraOpThreads, backend, nnapiUseFp16,
+                backend == ReuseConfig.Backend.NNAPI_ACCELERATOR && outputDir != null
+                        ? outputDir.resolve("nnapi-warmup") : null);
         return () -> {
+            if (backend == ReuseConfig.Backend.NNAPI_ACCELERATOR) Files.createDirectories(outputDir);
             final ChunkedReuseEnhancer e = new ChunkedReuseEnhancer(modelDir.resolve("model.onnx"),
-                    modelDir.resolve("manifest.json"), new ReuseConfig(8000, 3, intraOpThreads), customOpLibrary);
+                    modelDir.resolve("manifest.json"), config, customOpLibrary);
             return new Engine() {
                 public float[] process(float[] input) throws Exception { return e.process(input); }
                 public float[] flush() throws Exception { return e.flush(); }
                 public void reset() { e.reset(); }
                 public void close() throws Exception { e.close(); }
+                public void verifyAcceleratorExecution() throws Exception { e.verifyAcceleratorExecution(); }
+                public Map<String, Object> executionDiagnostics() { return e.executionDiagnostics(); }
             };
         };
     }
@@ -177,8 +201,11 @@ public final class EnhancementSession implements AutoCloseable {
         try {
             workerInitializer.run();
             long begin = System.nanoTime(); engine = factory.create(); loadNs = System.nanoTime() - begin;
+            synchronized (lock) { backendDiagnostics = new LinkedHashMap<>(engine.executionDiagnostics()); }
             begin = System.nanoTime();
             for (int i = 0; i < 3; i++) engine.process(new float[CHUNK]);
+            try { engine.verifyAcceleratorExecution(); }
+            finally { synchronized (lock) { backendDiagnostics = new LinkedHashMap<>(engine.executionDiagnostics()); } }
             engine.reset(); warmupNs = System.nanoTime() - begin;
             down = new FirResampler(); up = new FirResampler(); down.reset(); up.reset();
             synchronized (lock) { state = finishRequested ? "DRAINING" : "RUNNING"; sessionStartNs = System.nanoTime(); }
@@ -307,6 +334,12 @@ public final class EnhancementSession implements AutoCloseable {
             int completedCalls = (int) calls;
             Map<String, Object> s = new LinkedHashMap<>();
             s.put("state", state); s.put("sample_rate", RATE); s.put("model_rate", 8000);
+            s.put("requested_backend", requestedBackend.name());
+            s.put("nnapi_fp16_relaxation_requested", nnapiUseFp16);
+            s.put("hybrid_execution_requested", requestedBackend == ReuseConfig.Backend.NNAPI_ACCELERATOR);
+            s.put("nnapi_execution_verified", false);
+            s.put("gpu_execution_verified", false);
+            s.putAll(backendDiagnostics);
             s.put("input_samples", acceptedSamples); s.put("processed_input_samples", processedSamples);
             s.put("output_samples", enhancedBytes / 2); s.put("raw_recorded_samples", rawBytes / 2);
             s.put("dropped_input_samples", droppedSamples); s.put("rejected_after_stop_samples", rejectedAfterStopSamples);

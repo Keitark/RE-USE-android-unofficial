@@ -1,1 +1,2 @@
 -keep class ai.onnxruntime.** { *; }
+-keep class io.github.reuse.RuntimeBuildInfo { *; }
