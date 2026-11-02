@@ -16,6 +16,11 @@ It is debug-signed and updates probe1 in place, retaining previous diagnostics.
 The original [probe1 release](https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.3.0-qnn-probe1)
 is preserved.
 
+The [probe2 build receipt](validation/qnn-probe2-build.json) records 24 passing
+host tests, a successful APK build, 0 lint errors / 8 warnings, signature and
+fixture checks, and an unchanged native runtime payload. Probe2's device
+convolution support and CPU/NPU comparisons remain unmeasured until a new run.
+
 Install `reuse-qnn-probe.apk` and open **RE-USE QNN Probe (Unofficial)**. Press
 **Run NPU test**, keep the screen open, then use **Share diagnostics** to export
 the result. The probe has no microphone or Internet permission. It installs
@@ -65,8 +70,9 @@ ORT profile. Finding a device or loading a library alone is not a pass.
 Each case runs **CPU FP32, CPU QDQ, then QNN HTP QDQ** on identical input
 fixtures. CPU uses two intra-op threads and one inter-op thread. QNN uses ORT
 intra/inter-op thread settings of one, the `balanced` performance setting, and
-HTP hardware; this is not a core-for-core comparison. CPU baselines require CPU-only kernel evidence, and a
-failed QNN case does not prevent CPU results or the other cases from running.
+HTP hardware; this is not a core-for-core comparison. CPU baselines require
+CPU-only kernel evidence, and a failed QNN case does not prevent CPU results or
+the other cases from running.
 
 Every backend receives **five warm-up calls and 20 timed calls**. Compilation,
 first warm-up, total warm-up and steady-call distributions are reported
