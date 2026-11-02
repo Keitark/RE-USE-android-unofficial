@@ -5,14 +5,16 @@ It does not record audio or run the full RE-USE enhancement pipeline. The
 existing CPU microphone demo remains the app to use for speech enhancement.
 
 The probe is unofficial and is not affiliated with or endorsed by NVIDIA or
-Qualcomm. Its NVIDIA-derived projection fixture is for noncommercial research
+Qualcomm. Its NVIDIA-derived model fixtures are for noncommercial research
 and education under NSCLv1.
 
 ## Try the APK
 
-[Download the research probe APK](https://github.com/Keitark/RE-USE-android-unofficial/releases/download/v0.3.0-qnn-probe1/reuse-qnn-probe.apk)
-from the [release and checksums](https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.3.0-qnn-probe1).
-It is about 102 MB and debug-signed.
+[Download the CPU/NPU comparison APK](https://github.com/Keitark/RE-USE-android-unofficial/releases/download/v0.3.0-qnn-probe2/reuse-qnn-probe.apk)
+from the [release and checksums](https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.3.0-qnn-probe2).
+It is debug-signed and updates probe1 in place, retaining previous diagnostics.
+The original [probe1 release](https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.3.0-qnn-probe1)
+is preserved.
 
 Install `reuse-qnn-probe.apk` and open **RE-USE QNN Probe (Unofficial)**. Press
 **Run NPU test**, keep the screen open, then use **Share diagnostics** to export
@@ -21,10 +23,16 @@ alongside the CPU and GPU preview apps.
 
 Android 10 or newer and ARM64 are required. The initial target is Xperia IV's
 Snapdragon 8 Gen 1 / SM8450, whose Hexagon generation is V69. The packaged
-runtime includes V69 support; actual device firmware and FastRPC access still
-need a physical test. An emulator cannot establish NPU compatibility or speed.
+runtime includes V69 support. The user-supplied [Xperia probe1 report](validation/qnn-xperia-probe1-user-report.json)
+records successful HTP execution of both original graphs on Sony SO-51C,
+SM8450, Android 14: the actual RE-USE projection averaged **1.876 ms**, with
+**2.093 ms p95**, across 20 timed calls. CPU fallback was disabled and each graph
+reported 21 QNN kernel events. This is application-level evidence from the
+reported JSON; raw profiles and hardware-counter traces were not supplied.
+Other devices, new convolution cases and full-model performance need their own
+tests. An emulator cannot establish NPU compatibility or speed.
 
-The [build receipt](validation/qnn-probe1-build.json) records 13 passing host
+The original [probe1 build receipt](validation/qnn-probe1-build.json) records 13 passing host
 tests, package checks, and the separate emulator UI check. In the API 35 x86
 emulator, the UI launches, but the ARM-translated ORT 1.29 native library crashes
 during initialization before QNN registration. The trace points to CPU feature
@@ -38,11 +46,14 @@ files. No NPU execution or performance result has been obtained from that test.
 | --- | --- | --- |
 | Synthetic matrix multiplication | Fixed quantized matrix operation with nonconstant input | Check HTP graph execution and numerical output |
 | RE-USE input projection | A trained `[64,512]` weight matrix, with input flattened to `[405,64]` | Check one actual model operation, about 13.27 million multiply-accumulates |
+| RE-USE encoder stride-2 Conv | `[1,64,5,163]` input, `[64,64,1,3]` weights, stride `[1,2]` | Check a conventional convolution and its transfer/layout costs |
+| RE-USE encoder dilated Conv | `[1,256,21,163]` input, `[64,256,3,3]` weights, dilation `[8,1]` | Test a heavier operation, about 120.18 million multiply-accumulates |
 
-Both graphs use explicit UINT8 quantize/dequantize boundaries. The projection
-uses intermediate activations from NVIDIA's pinned public example audio, not a
-user recording. The generator records quantization error relative to the FP32
-projection and writes CPU quantized-reference outputs for device verification.
+Each case includes an original FP32 graph and an explicit UINT8
+quantize/dequantize (QDQ) graph. Conv bias is quantized to INT32 with the product
+of activation and weight scales. Actual model cases use intermediate activations
+from NVIDIA's pinned public example audio, not a user recording. The generator
+records quantization error relative to FP32 and writes both reference outputs.
 One example clip is a smoke-test calibration source, not a general audio-quality
 validation set.
 
@@ -51,10 +62,28 @@ and requests the absolute `libQnnHtp.so` backend path. CPU fallback is disabled.
 A passing case requires correct output and observed QNN kernel execution in the
 ORT profile. Finding a device or loading a library alone is not a pass.
 
-Initialization/compilation, warm-up and repeated session-call timings are
-reported separately. Session-call times include host dispatch and output
-handling; they are not hardware-only kernel times. No RTF is assigned to these
-isolated layers. They do not establish streaming latency or full-model speed.
+Each case runs **CPU FP32, CPU QDQ, then QNN HTP QDQ** on identical input
+fixtures. CPU uses two intra-op threads and one inter-op thread. QNN uses ORT
+intra/inter-op thread settings of one, the `balanced` performance setting, and
+HTP hardware; this is not a core-for-core comparison. CPU baselines require CPU-only kernel evidence, and a
+failed QNN case does not prevent CPU results or the other cases from running.
+
+Every backend receives **five warm-up calls and 20 timed calls**. Compilation,
+first warm-up, total warm-up and steady-call distributions are reported
+separately. Timing includes synchronous ORT dispatch, output readback and ORT
+profiling overhead. Fixture loading and numerical comparisons are excluded.
+These short sequential tests do not control thermal state or DVFS, do not
+simulate audio arrival, and do not establish sustained performance.
+
+Ratios are emitted only for verified, numerically passing results. A ratio of
+`CPU mean / NPU mean` above one means the NPU was faster for that isolated case;
+below one means CPU was faster. FP32-to-NPU comparisons include a precision
+change. CPU-QDQ-to-NPU compares the same quantized graph on different backends.
+Backend-to-reference error is distinct from FP32 quantization error: the probe1
+projection's roughly two-step maximum difference was already relative to a CPU
+QDQ reference, so ordinary weight quantization loss alone does not explain it.
+No RTF is assigned to isolated layers, and passing their numerical tolerances
+does not validate speech quality or full-model streaming latency.
 
 Progress is saved before native stages so a vendor-library process crash can
 leave its last stage available for diagnostics. Reopen the app after a crash
@@ -102,7 +131,7 @@ cmake --build native/build-qnn-reference --config Release
 .\gradlew.bat :qnn-probe:testDebugUnitTest :qnn-probe:assembleDebug :qnn-probe:lintDebug
 ```
 
-Generated model/fixture assets stay under `.research/qnn-probe-assets/` and are
+Generated model/fixture assets stay under `.research/qnn-probe2-assets/` and are
 copied into the APK at build time. They are not checked into Git. The APK is
 written to `android/qnn-probe/build/outputs/apk/debug/`.
 
@@ -123,8 +152,8 @@ the test, install apps or read audio files.
 
 ## Next model work
 
-After physical HTP execution is established, test larger convolution regions
-and measure the complete CPU/NPU pipeline. The current model has custom CPU
+Use the same-device comparison to choose useful larger regions, then measure
+the complete CPU/NPU pipeline. The current model has custom CPU
 Mamba, normalization and fused convolution operations. Full-model acceleration
 requires compatible lowering or deliberate hybrid partitions, representative
 chronological state calibration, and audio-quality checks. Fast execution of a

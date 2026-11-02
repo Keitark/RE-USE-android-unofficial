@@ -26,8 +26,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -79,9 +77,9 @@ public final class QnnProbeActivity extends Activity {
         page.setPadding(dp(24), dp(24), dp(24), dp(24));
         scroll.addView(page);
         add(page, text("RE-USE · UNOFFICIAL", 14, MINT, true), 0);
-        add(page, text("QNN NPU Probe", 30, INK, true), 12);
-        add(page, text("Tests Qualcomm Hexagon NPU access and one isolated RE-USE projection. This is a hardware test, not an NPU microphone demo.", 16, MUTED, false), 12);
-        add(page, text("No microphone access. No audio recording. No full RE-USE acceleration or audio-quality claim.", 14, MINT, true), 12);
+        add(page, text("CPU / NPU Comparison", 30, INK, true), 12);
+        add(page, text("Compare isolated RE-USE projection and convolution graphs on CPU FP32, CPU quantized, and Qualcomm Hexagon NPU.", 16, MUTED, false), 12);
+        add(page, text("Layer benchmarks only · no microphone or audio recording", 14, MINT, true), 12);
 
         LinearLayout card = column();
         card.setPadding(dp(20), dp(20), dp(20), dp(20));
@@ -92,10 +90,10 @@ public final class QnnProbeActivity extends Activity {
         add(page, card, 22);
         status = text("Ready to test", 23, INK, true);
         add(card, status, 0);
-        detail = text("Tap Run NPU test. Initialization and compilation are measured separately from 20 calls after warm-up.", 15, MUTED, false);
+        detail = text("Each backend gets five warm-up calls and 20 timed calls. Initialization and compilation are reported separately.", 15, MUTED, false);
         detail.setTextIsSelectable(true);
         add(card, detail, 10);
-        run = button("Run NPU test", true);
+        run = button("Run CPU / NPU tests", true);
         run.setOnClickListener(view -> startProbe());
         add(card, run, 18);
         results = text("", 14, MUTED, false);
@@ -111,8 +109,8 @@ public final class QnnProbeActivity extends Activity {
         licenses.setOnClickListener(view -> showLicensePicker());
         add(card, licenses, 9);
 
-        add(page, text("The test runs a tiny quantized matrix operation, then a quantized projection extracted from NVIDIA Real-time RE-USE. Passing either test establishes only that graph's execution.", 13, MUTED, false), 20);
-        add(page, text("A pass requires the QNN NPU device, HTP backend, CPU fallback disabled, correct outputs, and QNN execution events. Layer timing is not full-model RTF or microphone latency.", 13, MUTED, false), 12);
+        add(page, text("CPU uses two threads; QNN uses balanced HTP mode. Tests run CPU FP32 → CPU quantized → NPU for each graph. Order and thermal conditions are not controlled.", 13, MUTED, false), 20);
+        add(page, text("Results require correct outputs and verified execution-provider events. Layer ratios do not establish full-model speed, microphone latency, or audio quality.", 13, MUTED, false), 12);
         add(page, text("Uses NVIDIA model-derived weights for noncommercial research. Not affiliated with or endorsed by NVIDIA or Qualcomm.", 12, MUTED, false), 16);
         setContentView(scroll);
     }
@@ -133,7 +131,7 @@ public final class QnnProbeActivity extends Activity {
         boolean running = RUNNING.get();
         run.setEnabled(!running);
         if (running) {
-            status.setText("Testing NPU…");
+            status.setText("Comparing CPU / NPU…");
             detail.setText(progress);
             results.setText("No microphone is open. Last-stage diagnostics are saved before native execution.");
             if (visible) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -154,18 +152,23 @@ public final class QnnProbeActivity extends Activity {
     private void showResult(QnnProbeRunner.Result result) {
         JSONObject report = result.diagnostics;
         boolean interrupted = "RUNNING".equals(report.optString("status"));
-        boolean allVerified = !interrupted && report.optBoolean("qnn_htp_test_verified", false);
-        status.setText(interrupted ? "Previous test interrupted"
-                : allVerified ? "Isolated NPU tests passed" : "NPU test did not pass");
+        boolean comparison = report.optInt("schema_version", 1) >= 2;
+        boolean ready = !interrupted && (comparison
+                ? report.optBoolean("comparison_all_verified", false) : report.optBoolean("qnn_htp_test_verified", false));
+        boolean anyHtp = report.optBoolean("any_htp_graph_verified", report.optBoolean("qnn_htp_test_verified", false));
+        status.setText(interrupted ? "Previous test interrupted" : ready ? "Comparison ready" : "Partial test results");
         if (interrupted) {
-            detail.setText("The previous test stopped during " + report.optString("last_stage", "an unknown stage")
-                    + ". Its diagnostics are available below. Tap Run NPU test only when you want to retry.");
-        } else if (allVerified) {
-            detail.setText("QNN HTP executed both isolated graphs with correct outputs. Full RE-USE microphone processing has not been accelerated by this test.");
+            detail.setText("Stopped during " + report.optString("last_stage", "an unknown stage")
+                    + ". Saved diagnostics are available below. Tests restart only when you tap Run.");
+        } else if (ready) {
+            detail.setText(comparison ? "All CPU / NPU graph comparisons verified. Ratios greater than 1 favor the NPU."
+                    : "Previous isolated QNN tests passed. Run the updated test to add CPU and convolution comparisons.");
+        } else if (anyHtp) {
+            detail.setText("QNN HTP access verified. Some graph comparisons failed or are incomplete; successful results remain available.");
         } else {
             String failure = report.optString("failure_stage");
             detail.setText(failure.isEmpty()
-                    ? "See the individual graph results below. Share or copy diagnostics for the complete error."
+                    ? "NPU execution is unverified. Independent CPU results and error details appear below."
                     : "Stopped at " + failure + ". Share or copy diagnostics for the complete error.");
         }
         StringBuilder lines = new StringBuilder();
@@ -181,20 +184,42 @@ public final class QnnProbeActivity extends Activity {
             JSONObject test = cases.optJSONObject(i);
             if (test == null) continue;
             lines.append("\n\n").append(test.optString("title", "Graph test"));
-            lines.append(test.optBoolean("htp_execution_verified", false) ? "\nHTP execution verified" : "\nHTP execution unverified");
-            if (test.has("session_create_compile_ms")) lines.append(String.format(Locale.US,
-                    "\nSession / compile: %.1f ms", test.optDouble("session_create_compile_ms")));
-            if (test.has("mean_call_wall_ms")) lines.append(String.format(Locale.US,
-                    "\n20 calls · mean %.3f ms · p95 %.3f ms", test.optDouble("mean_call_wall_ms"), test.optDouble("p95_call_wall_ms")));
-            if (test.has("maximum_absolute_error")) lines.append("\nMax error: ")
-                    .append(test.opt("maximum_absolute_error")).append(" · limit ").append(test.opt("absolute_tolerance"));
-            if (test.has("qnn_kernel_events")) lines.append("\nQNN kernel events: ").append(test.optInt("qnn_kernel_events"));
-            if (test.has("error")) lines.append("\nStage: ").append(test.optString("failure_stage"))
-                    .append("\n").append(shortError(test.optString("error")));
+            if (comparison) {
+                appendBackend(lines, "CPU FP32", test.optJSONObject("cpu_fp32"));
+                appendBackend(lines, "CPU quantized", test.optJSONObject("cpu_qdq"));
+                appendBackend(lines, "NPU quantized", test.optJSONObject("qnn_htp"));
+                if (test.has("cpu_fp32_over_qnn_speedup")) lines.append(String.format(Locale.US,
+                        "\nCPU FP32 / NPU: %.2f×", test.optDouble("cpu_fp32_over_qnn_speedup")));
+                if (test.has("cpu_qdq_over_qnn_speedup")) lines.append(String.format(Locale.US,
+                        "\nCPU quantized / NPU: %.2f×", test.optDouble("cpu_qdq_over_qnn_speedup")));
+            } else {
+                appendBackend(lines, "NPU quantized", test);
+            }
+            if (test.has("error") && !test.has("qnn_htp")) lines.append("\n").append(shortError(test.optString("error")));
         }
+        JSONObject qnnInitialization = report.optJSONObject("qnn_initialization");
+        if (qnnInitialization != null && qnnInitialization.has("error")) lines.append("\n\nQNN initialization: ")
+                .append(shortError(qnnInitialization.optString("error")));
         if (report.has("error")) lines.append("\n\n").append(shortError(report.optString("error")));
         if (report.has("diagnostics_write_error")) lines.append("\n\nCould not save all diagnostic files. Copy diagnostics to retain the error.");
         results.setText(lines.toString());
+    }
+
+    private static void appendBackend(StringBuilder text, String label, JSONObject backend) {
+        text.append("\n\n").append(label).append(": ");
+        if (backend == null) { text.append("pending"); return; }
+        boolean verified = backend.optBoolean("execution_verified", backend.optBoolean("htp_execution_verified", false));
+        if (backend.has("mean_call_wall_ms")) {
+            text.append(String.format(Locale.US, "%.3f ms mean · %.3f ms p95",
+                    backend.optDouble("mean_call_wall_ms"), backend.optDouble("p95_call_wall_ms")));
+            if (!verified) text.append(" (unverified)");
+        } else text.append(verified ? "verified" : "unverified");
+        if (backend.has("session_create_compile_ms")) text.append(String.format(Locale.US,
+                "\nSession / compile %.1f ms", backend.optDouble("session_create_compile_ms")));
+        if (backend.has("warmup_first_call_wall_ms")) text.append(String.format(Locale.US,
+                " · first warm-up %.3f ms", backend.optDouble("warmup_first_call_wall_ms")));
+        if (backend.has("error")) text.append("\n").append(backend.optString("failure_stage"))
+                .append(": ").append(shortError(backend.optString("error")));
     }
 
     private QnnProbeRunner.Result restoreLatest() {
@@ -202,7 +227,7 @@ public final class QnnProbeActivity extends Activity {
         File[] directories = root.listFiles(file -> file.isDirectory()
                 && file.getName().matches("[0-9]{8}-[0-9]{6}-[a-f0-9]{8}"));
         if (directories == null) return null;
-        Arrays.sort(directories, Comparator.comparing(File::getName).reversed());
+        CaptureOrder.newestFirst(directories);
         for (File directory : directories) {
             try {
                 File json = new File(directory, "stats.json");

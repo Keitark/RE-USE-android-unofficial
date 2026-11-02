@@ -13,7 +13,7 @@ identifies NSCLv1; the revision and source hashes are recorded in
 | Optional GPU-only ORT device-filter patch, packaging tools and independent runtime-identity JNI bridge | MIT; upstream runtime license and full third-party notices are retained in the experimental AAR/APK |
 | Separate QNN probe application and synthetic test | MIT; its ORT 1.29.0 and QNN EP 2.7.0 dependencies carry their own MIT and third-party notices |
 | Qualcomm QNN runtime 2.51.0 in the QNN probe | Proprietary Qualcomm AI Stack License; original license and notices are [included](licenses/qnn/README.md) |
-| RE-USE-derived QNN projection graph, weights and sample-derived fixtures | NVIDIA NSCLv1; noncommercial research and education |
+| RE-USE-derived QNN projection/Conv graphs, weights and sample-derived fixtures | NVIDIA NSCLv1; noncommercial research and education |
 | AndroidX Core 1.13.1 | Apache 2.0, as declared in the [official Maven metadata](https://dl.google.com/dl/android/maven2/androidx/core/core/1.13.1/core-1.13.1.pom) |
 
 The native NSCLv1 scope includes `native/selective_scan.cpp`, `native/even/`,

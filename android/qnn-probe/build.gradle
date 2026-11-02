@@ -1,7 +1,7 @@
 plugins { id 'com.android.application' }
 
 // Keep this module independent of :reuse and its pinned CPU/GPU runtime.
-def probeAssetsSource = rootProject.file('.research/qnn-probe-assets')
+def probeAssetsSource = rootProject.file('.research/qnn-probe2-assets')
 def probeNoticesSource = rootProject.file('docs/licenses/qnn')
 def generatedAssets = layout.buildDirectory.dir('generated/qnnProbeAssets')
 def copyQnnProbeAssets = tasks.register('copyQnnProbeAssets', Sync) {
@@ -11,7 +11,8 @@ def copyQnnProbeAssets = tasks.register('copyQnnProbeAssets', Sync) {
     from(probeAssetsSource) { into 'qnn' }
     from(probeNoticesSource) { into 'qnn-notices' }
     doFirst {
-        ['manifest.json', 'synthetic_matmul_u8.onnx', 'reuse_in_proj_u8.onnx'].each { name ->
+        ['manifest.json', 'synthetic_matmul_u8.onnx', 'reuse_in_proj_u8.onnx',
+         'reuse_encoder_stride2_conv_u8.onnx', 'reuse_encoder_dilated_conv_u8.onnx'].each { name ->
             if (!new File(probeAssetsSource, name).isFile())
                 throw new GradleException("Missing QNN probe asset ${name}; generate the probe fixtures before building. See docs/qnn-probe.md.")
         }
@@ -25,8 +26,8 @@ android {
         applicationId 'io.github.reuse.qnnprobe'
         minSdk 29
         targetSdk 35
-        versionCode 1
-        versionName '0.3.0-qnn-probe1'
+        versionCode 2
+        versionName '0.3.0-qnn-probe2'
         buildConfigField 'String', 'ORT_VERSION', '"1.29.0"'
         buildConfigField 'String', 'QNN_EP_VERSION', '"2.7.0"'
         buildConfigField 'String', 'QNN_RUNTIME_VERSION', '"2.51.0"'

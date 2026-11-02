@@ -10,7 +10,7 @@ their original runtimes.
 | ONNX Runtime Android | 1.29.0 | `ONNXRuntime-MIT.txt`, `ONNXRuntime-ThirdPartyNotices.txt` |
 | ONNX Runtime QNN execution-provider plugin | 2.7.0 | `QNN-EP-MIT.txt`, `QNN-EP-ThirdPartyNotices.txt` |
 | Qualcomm QNN runtime | 2.51.0 | `Qualcomm-AI-Stack-License.pdf`, its extracted text, and `Qualcomm-NOTICE.txt` |
-| NVIDIA Real-time RE-USE derived projection fixture | Existing checkpoint weights | `NVIDIA-NSCLv1.txt` |
+| NVIDIA Real-time RE-USE derived projection and Conv fixtures | Existing checkpoint weights | `NVIDIA-NSCLv1.txt` |
 | AndroidX Core | 1.13.1 | `Apache-2.0.txt` and the dependency's original notices |
 
 The Qualcomm runtime is proprietary software distributed under its AI Stack

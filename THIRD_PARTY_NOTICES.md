@@ -61,7 +61,7 @@ QNN execution-provider plugin 2.7.0, and the proprietary Qualcomm QNN runtime
 `docs/licenses/qnn/` and packaged in the probe APK. The Qualcomm runtime is
 resolved from Maven Central and distributed only as incorporated in the app;
 this repository does not publish a standalone Qualcomm runtime AAR or SDK.
-The trained projection weights, sample-derived fixtures and model-specific
+The trained projection/Conv weights, sample-derived fixtures and model-specific
 fixture generator remain under the NVIDIA noncommercial terms above. The
 independent Java probe UI and synthetic test are MIT. See the
 [QNN component notices](docs/licenses/qnn/README.md).

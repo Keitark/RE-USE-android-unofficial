@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "source": "User-supplied probe JSON in this project's conversation",
+  "reported_date": "2026-11-02",
+  "evidence_scope": "Application-reported provider execution and numerical checks; raw ORT profiles and hardware-counter traces were not supplied",
+  "app_version": "0.3.0-qnn-probe1",
+  "device": {"manufacturer": "Sony", "model": "SO-51C", "soc": "SM8450", "android_release": "14", "android_api": 34},
+  "runtime": {"ort": "1.29.0", "qnn_plugin_package": "2.7.0", "qnn_runtime_package": "2.51.0"},
+  "status": "VERIFIED_ISOLATED_GRAPHS",
+  "npu_device_selected": true,
+  "backend": "QNN HTP",
+  "cpu_ep_fallback_disabled": true,
+  "htp_performance_mode": "balanced",
+  "timing_scope": "Synchronous ORT run and output-buffer readback, including profiling overhead; excludes compilation, warm-up and numerical comparison",
+  "cases": [
+    {
+      "id": "synthetic_matmul_u8",
+      "model_sha256": "fe3fe293f9b6d8cfeac6d3a5413bb926a81633edb566543fd601e3a1d532cead",
+      "correctness_passed": true,
+      "qnn_kernel_events": 21,
+      "timed_calls": 20,
+      "mean_call_wall_ms": 0.3564062,
+      "p95_call_wall_ms": 0.389844,
+      "max_call_wall_ms": 0.448125,
+      "session_create_compile_ms": 322.117135,
+      "warmup_wall_ms": 1.824011,
+      "maximum_absolute_error": 0.010314226150512695,
+      "absolute_tolerance": 0.02165986904874444,
+      "outside_tolerance_elements": 0
+    },
+    {
+      "id": "reuse_in_proj_u8",
+      "model_sha256": "5ed2381a37f6b7ffe30fab820ef6596dd2fd520ddd30246668c6d6569e454828",
+      "correctness_passed": true,
+      "qnn_kernel_events": 21,
+      "timed_calls": 20,
+      "mean_call_wall_ms": 1.8758333500000002,
+      "p95_call_wall_ms": 2.092604,
+      "max_call_wall_ms": 2.33224,
+      "session_create_compile_ms": 236.198281,
+      "warmup_wall_ms": 138.14323,
+      "maximum_absolute_error": 0.0915367603302002,
+      "absolute_tolerance": 0.09573614895343781,
+      "outside_tolerance_elements": 0
+    }
+  ],
+  "cpu_baseline_measured": false,
+  "full_reuse_acceleration_verified": false,
+  "full_model_rtf_measured": false,
+  "audio_quality_verified": false,
+  "privacy": "Sanitized aggregate report; original app installation paths, raw diagnostic identifiers and timestamps omitted"
+}
