@@ -111,6 +111,21 @@ Use **Share diagnostics (no audio)** to export `stats.json` and
 USB debugging. It shares only those JSON files through Android's chooser;
 the separate WAV-sharing action remains available after a successful recording.
 
+For a paired, connected wireless ADB session, the PC can keep app-scoped logs:
+
+```powershell
+pwsh -NoProfile -File tools/capture-phone-logs.ps1 -Serial DEVICE_IP:ADB_PORT
+```
+
+This uses the already-authorized connection; it does not pair the phone or
+open its microphone. It captures only this app's UID-filtered logcat and
+whitelisted JSON diagnostics, including the silent warm-up profile. Logs stay
+under ignored `.research/phone-live-logs/` by default. The recorder stops after
+60 minutes or a 50 MiB capture budget; use `-MaxMinutes` or `-MaxLogMiB` to
+change those limits. Ctrl+C, or creating `stop.requested` in the reported output
+directory, stops its own logcat client. It never clears device logs or copies
+WAV/PCM recordings. Tailscale connectivity alone does not enable ADB.
+
 ## Overload and diagnostics
 
 The bounded input queue remains 500 ms. A temporary call over 100 ms can use
