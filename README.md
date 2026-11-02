@@ -112,6 +112,11 @@ establish microphone capture, speaker playout or general audio quality. The
 optional QNN APK and libraries are separate from the stable CPU download above.
 See the [earlier one-convolution experiments](docs/qnn-hybrid.md) for comparison.
 
+The separate [compute-resource test APK](docs/compute-resources.md) prepares
+CPU-thread, direct Adreno GPU, Vulkan-compute and HTP-mode comparisons for
+later device testing. It records unsupported paths and numerical failures
+explicitly. Its build is not a new device-performance result.
+
 The demo is an adapter around reusable AARs. Both the phone app and optional G2
 companion consume the same enhancement pipeline.
 

@@ -1,5 +1,9 @@
 # Qualcomm QNN HTP probe
 
+This page describes the earlier isolated-layer releases. Current source builds
+launch the broader [compute-resource test](compute-resources.md), which also
+checks direct Adreno and Vulkan paths and CPU thread settings.
+
 This separate app tests direct Qualcomm Hexagon NPU access, without NNAPI.
 It does not record audio or run the full RE-USE enhancement pipeline. The
 existing CPU microphone demo remains the app to use for speech enhancement.

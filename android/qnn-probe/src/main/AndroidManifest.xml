@@ -9,7 +9,9 @@
         android:allowBackup="false" android:supportsRtl="true">
         <provider android:name="ai.onnxruntime.TelemetryInitializer" tools:node="remove" />
         <uses-native-library android:name="libcdsprpc.so" android:required="false" />
-        <activity android:name=".QnnProbeActivity" android:exported="true">
+        <uses-native-library android:name="libOpenCL.so" android:required="false" />
+        <activity android:name=".QnnProbeActivity" android:exported="true" />
+        <activity android:name=".ResourceProbeActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

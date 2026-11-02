@@ -1,6 +1,7 @@
 package io.github.reuse.qnnprobe;
 
 import android.content.Context;
+import android.os.PowerManager;
 import ai.onnxruntime.OrtEnvironment;
 import io.github.reuse.ChunkedReuseEnhancer;
 import io.github.reuse.ReuseConfig;
@@ -41,20 +42,47 @@ final class FullStreamingBenchmark {
     private static final int GROUPED_CALLS = 25;
     private static final int MAX_BYTES = 32 * 1024 * 1024;
     private static final int MAX_PROFILE_BYTES = 64 * 1024 * 1024;
+    private static final String DEFAULT_REPORT_KEY = "full_stream_benchmark";
     private final Context context;
 
     FullStreamingBenchmark(Context context) { this.context = context.getApplicationContext(); }
 
-    private enum Mode {
+    enum Mode {
         CPU_FP32("cpu_fp32"), CPU_QDQ("cpu_qdq"), QNN_HTP("qnn_htp");
         final String key;
         Mode(String key) { this.key = key; }
     }
 
+    static void validateOptions(int threads, String htpPerformanceMode, String reportKey) {
+        if (threads < 1 || threads > 8)
+            throw new IllegalArgumentException("Resource trials require one to eight CPU intra-op threads");
+        if (!"balanced".equals(htpPerformanceMode) && !"burst".equals(htpPerformanceMode))
+            throw new IllegalArgumentException("Resource trials support balanced or burst HTP mode");
+        outputPrefix(reportKey);
+    }
+
+    static String outputPrefix(String reportKey) {
+        if (reportKey == null || !reportKey.matches("[A-Za-z][A-Za-z0-9_]{0,63}"))
+            throw new IllegalArgumentException("Report key must be one to 64 ASCII letters, digits or underscores, starting with a letter");
+        return DEFAULT_REPORT_KEY.equals(reportKey) ? "full" : reportKey;
+    }
+
+    static Mode[] selectedModes(boolean includeHtp) {
+        return includeHtp ? Mode.values() : new Mode[]{Mode.CPU_FP32, Mode.CPU_QDQ};
+    }
+
     QnnProbeRunner.Result run(QnnProbeRunner.Result groupedResult, QnnProbeRunner.Progress progress) {
+        return run(groupedResult, progress, 2, true, "balanced", DEFAULT_REPORT_KEY);
+    }
+
+    /** Resource trials share verified fixtures, while keeping each trial's outputs separate. */
+    QnnProbeRunner.Result run(QnnProbeRunner.Result groupedResult, QnnProbeRunner.Progress progress,
+                              int threads, boolean includeHtp, String htpPerformanceMode, String reportKey) {
+        validateOptions(threads, htpPerformanceMode, reportKey);
+        String outputPrefix = outputPrefix(reportKey);
         JSONObject report = groupedResult.diagnostics;
         JSONObject benchmark = new JSONObject();
-        put(report, "full_stream_benchmark", benchmark);
+        put(report, reportKey, benchmark);
         put(report, "full_reuse_acceleration_verified", false);
         put(report, "full_model_hybrid_execution_verified", false);
         put(report, "audio_quality_verified", false);
@@ -63,7 +91,18 @@ final class FullStreamingBenchmark {
         put(benchmark, "audio_quality_verified", false);
         put(benchmark, "microphone_started", false);
         put(benchmark, "timing_scope", "Sum of complete unprofiled enhancer.process calls plus flush, including Java STFT/synthesis and synchronous inference; excludes compilation, profiled zero warm-up, profile verification, checkpoints, comparisons and file writes. Offline unpaced processing, not live playout.");
-        put(benchmark, "comparison_limits", "Sequential CPU_FP32, CPU_QDQ, QNN_HTP runs on one public calibration clip. Same ORT and two CPU intra-op threads; QNN HTP balanced mode with FP16 disabled. Provider evidence covers three zero-input warm-up calls only; profiling ends before reset and the measured sequence. Test order, clocks and thermal conditions are not controlled.");
+        put(benchmark, "comparison_limits", "Sequential CPU_FP32, CPU_QDQ" + (includeHtp ? ", QNN_HTP" : "")
+                + " runs on one public calibration clip. Same ORT and " + threads + " CPU intra-op threads. "
+                + (includeHtp ? "QNN HTP " + htpPerformanceMode + " mode with FP16 disabled. " : "HTP is not included in this trial. ")
+                + "Provider evidence covers three zero-input warm-up calls only; profiling ends before reset and the measured sequence. Test order, clocks and thermal conditions are not controlled.");
+        put(benchmark, "report_key", reportKey);
+        put(benchmark, "output_file_prefix", outputPrefix);
+        put(benchmark, "cpu_intra_op_threads", threads);
+        put(benchmark, "cpu_inter_op_threads", 1);
+        put(benchmark, "cpu_affinity_controlled", false);
+        put(benchmark, "cpu_thread_pool_scope", "ORT intra-op thread-pool size only; Android chooses scheduling and core placement. This does not prove that all cores are used or pinned, and no new spinning policy is enabled.");
+        put(benchmark, "htp_included", includeHtp);
+        put(benchmark, "htp_performance_mode", includeHtp ? htpPerformanceMode : JSONObject.NULL);
         put(benchmark, "profiling_protocol", "three_zero_warmup_calls_then_unprofiled_sequence");
         put(benchmark, "timed_calls_profiled", false);
         put(benchmark, "warmup_calls_per_backend", WARMUP_CALLS);
@@ -140,7 +179,7 @@ final class FullStreamingBenchmark {
             boolean qnnAllowed = groupGate.optBoolean("verified", false);
             Map<Mode, float[]> outputs = new LinkedHashMap<>();
             boolean allComplete = true;
-            for (Mode mode : Mode.values()) {
+            for (Mode mode : selectedModes(includeHtp)) {
                 JSONObject result = new JSONObject();
                 put(backends, mode.key, result);
                 put(result, "backend", mode.name());
@@ -160,7 +199,8 @@ final class FullStreamingBenchmark {
                     checkpoint(report, directory, "full.qnn_htp.skipped");
                     continue;
                 }
-                float[] output = runBackend(mode, files, audio, result, report, directory, progress);
+                float[] output = runBackend(mode, files, audio, result, report, directory, progress,
+                        threads, htpPerformanceMode, outputPrefix);
                 if (output != null) outputs.put(mode, output);
                 allComplete &= result.optBoolean("execution_verified", false);
             }
@@ -179,7 +219,9 @@ final class FullStreamingBenchmark {
             put(report, "full_model_hybrid_execution_verified", hybridVerified);
             put(benchmark, "hybrid_execution_verified", hybridVerified);
             put(report, "full_reuse_acceleration_verification_scope", "Full-product acceleration remains unverified. Complete hybrid execution and measured speed ratios are separate fields; no perceptual audio-quality approval.");
-            put(benchmark, "hybrid_execution_verification_scope", "Finite complete causal sequence in the same static session whose three zero-input warm-up calls show QNN HTP and CPU provider events. Timed calls and flush are unprofiled; no per-timed-call provider trace, compute-share or speed-gain claim follows from warm-up evidence.");
+            put(benchmark, "hybrid_execution_verification_scope", includeHtp
+                    ? "Finite complete causal sequence in the same static session whose three zero-input warm-up calls show QNN HTP and CPU provider events. Timed calls and flush are unprofiled; no per-timed-call provider trace, compute-share or speed-gain claim follows from warm-up evidence."
+                    : "HTP is not requested in this CPU-only trial; no hybrid execution claim.");
             put(report, "full_model_hybrid_timed_execution_profile_verified", false);
             recordMeasuredSpeed(benchmark, report, backends, "cpu_fp32", "cpu_fp32");
             recordMeasuredSpeed(benchmark, report, backends, "cpu_qdq", "cpu_qdq");
@@ -206,31 +248,36 @@ final class FullStreamingBenchmark {
     }
 
     private float[] runBackend(Mode mode, ModelFiles files, float[] audio, JSONObject result,
-                               JSONObject report, Path directory, QnnProbeRunner.Progress progress) {
+                               JSONObject report, Path directory, QnnProbeRunner.Progress progress,
+                               int threads, String htpPerformanceMode, String outputPrefix) {
         String stage = "full." + mode.key + ".initialize";
         long began = System.nanoTime();
         float[] trimmed = null;
+        put(result, "thermal_state_before", thermalSnapshot());
         try {
             put(result, "model_sha256", files.modelHash);
             put(result, "manifest_sha256", files.manifestHash);
-            put(result, "cpu_intra_op_threads", 2);
+            put(result, "cpu_intra_op_threads", threads);
             put(result, "cpu_inter_op_threads", 1);
+            put(result, "cpu_affinity_controlled", false);
+            put(result, "cpu_thread_pool_scope", "Requested ORT intra-op pool size; not measured active-core count or CPU affinity");
             put(result, "cpu_ep_fallback_allowed", mode == Mode.QNN_HTP);
             put(result, "fp16_relaxation_enabled", false);
             put(result, "expected_profile_model_calls", WARMUP_CALLS);
             put(result, "expected_total_model_calls", WARMUP_CALLS + EXPECTED_AUDIO_CALLS + 1);
             put(result, "timed_calls_profiled", false);
             put(result, "provider_verification_scope", "Three zero-input warm-up calls only; measured sequence and flush are unprofiled");
-            Path profilePrefix = directory.resolve("full-" + mode.key + "-ort");
+            Path profilePrefix = directory.resolve(outputPrefix + "-" + mode.key + "-ort");
             stage = "full." + mode.key + ".session_create_compile";
             checkpoint(report, directory, stage);
             progress.update("Complete public clip · " + mode.name().replace('_', ' ') + " · preparing…");
             long compilationBegan = System.nanoTime();
-            try (QnnHtpBackend qnn = mode == Mode.QNN_HTP ? new QnnHtpBackend(context, profilePrefix, true) : null) {
+            try (QnnHtpBackend qnn = mode == Mode.QNN_HTP
+                    ? new QnnHtpBackend(context, profilePrefix, true, htpPerformanceMode) : null) {
                 SessionOptionsConfigurer configuration = qnn == null
                         ? (environment, options) -> options.enableProfiling(profilePrefix.toString()) : qnn;
                 try (ChunkedReuseEnhancer enhancer = ChunkedReuseEnhancer.create(context, files.model,
-                        files.manifest, new ReuseConfig(SAMPLE_RATE, 3, 2), configuration)) {
+                        files.manifest, new ReuseConfig(SAMPLE_RATE, 3, threads), configuration)) {
                     put(result, "session_create_compile_ms", elapsed(compilationBegan));
                     put(result, "enhancer_execution_diagnostics", new JSONObject(enhancer.executionDiagnostics()));
                     double[] warmupMs = new double[WARMUP_CALLS];
@@ -266,6 +313,7 @@ final class FullStreamingBenchmark {
                     float[] accumulated = new float[EXPECTED_AUDIO_CALLS * CHUNK];
                     float[] input = new float[CHUNK];
                     double[] milliseconds = new double[EXPECTED_AUDIO_CALLS];
+                    double[] processCpuMilliseconds = new double[EXPECTED_AUDIO_CALLS];
                     int written = 0;
                     for (int call = 0; call < EXPECTED_AUDIO_CALLS; call++) {
                         if (call % 5 == 0) {
@@ -277,9 +325,12 @@ final class FullStreamingBenchmark {
                         Arrays.fill(input, 0);
                         int available = Math.min(CHUNK, audio.length - call * CHUNK);
                         if (available > 0) System.arraycopy(audio, call * CHUNK, input, 0, available);
+                        long processCpuBegan = android.os.Process.getElapsedCpuTime();
                         long started = System.nanoTime();
                         float[] output = enhancer.process(input);
                         milliseconds[call] = elapsed(started);
+                        processCpuMilliseconds[call] = processCpuDeltaMillis(processCpuBegan,
+                                android.os.Process.getElapsedCpuTime());
                         requireFinite(output);
                         int expected = call == 0 ? CHUNK - 160 : CHUNK;
                         if (output.length != expected || written + output.length > accumulated.length)
@@ -290,9 +341,11 @@ final class FullStreamingBenchmark {
                     put(result, "completed_audio_calls", EXPECTED_AUDIO_CALLS);
                     stage = "full." + mode.key + ".flush";
                     checkpoint(report, directory, stage);
+                    long flushCpuBegan = android.os.Process.getElapsedCpuTime();
                     long flushBegan = System.nanoTime();
                     float[] tail = enhancer.flush();
                     double flushMs = elapsed(flushBegan);
+                    double flushCpuMs = processCpuDeltaMillis(flushCpuBegan, android.os.Process.getElapsedCpuTime());
                     requireFinite(tail);
                     if (tail.length != 160 || written + tail.length != accumulated.length)
                         throw new IOException("Unexpected final streaming synthesis tail");
@@ -303,6 +356,10 @@ final class FullStreamingBenchmark {
                     for (java.util.Iterator<String> keys = timings.keys(); keys.hasNext();) {
                         String key = keys.next(); put(result, key, timings.get(key));
                     }
+                    JSONObject cpuTimings = processCpuSummary(processCpuMilliseconds, flushCpuMs, audio.length);
+                    for (java.util.Iterator<String> keys = cpuTimings.keys(); keys.hasNext();) {
+                        String key = keys.next(); put(result, key, cpuTimings.get(key));
+                    }
                     put(result, "source_input_samples", audio.length);
                     put(result, "padded_input_samples", accumulated.length);
                     put(result, "raw_output_samples_after_flush", written);
@@ -310,7 +367,7 @@ final class FullStreamingBenchmark {
                     put(result, "all_output_samples_finite", true);
                     stage = "full." + mode.key + ".save_public_outputs";
                     checkpoint(report, directory, stage);
-                    put(result, "saved_public_output", saveAudio(directory, "full-" + mode.key.replace('_', '-'), trimmed));
+                    put(result, "saved_public_output", saveAudio(directory, outputPrefix + "-" + mode.key.replace('_', '-'), trimmed));
                     stage = "full." + mode.key + ".close_enhancer";
                     checkpoint(report, directory, stage);
                 }
@@ -327,6 +384,7 @@ final class FullStreamingBenchmark {
             put(result, "error", error.toString());
             put(result, "error_details", stackTrace(error));
         } finally {
+            put(result, "thermal_state_after", thermalSnapshot());
             put(result, "backend_total_wall_ms", elapsed(began));
             put(result, "final_stage", stage);
             try { writeDiagnostics(report, directory); }
@@ -501,6 +559,50 @@ final class FullStreamingBenchmark {
         return result;
     }
 
+    static double processCpuDeltaMillis(long before, long after) throws IOException {
+        if (before < 0 || after < before) throw new IOException("Process CPU clock was negative or moved backwards");
+        return (double) (after - before);
+    }
+
+    static JSONObject processCpuSummary(double[] calls, double flushMs, int realSamples) throws IOException {
+        if (calls == null || calls.length == 0 || realSamples <= 0 || !Double.isFinite(flushMs) || flushMs < 0)
+            throw new IOException("Invalid complete-stream process CPU timing data");
+        double sum = 0, maximum = 0;
+        for (double call : calls) {
+            if (!Double.isFinite(call) || call < 0) throw new IOException("Invalid process CPU call time");
+            sum += call; maximum = Math.max(maximum, call);
+        }
+        if (!Double.isFinite(sum + flushMs)) throw new IOException("Process CPU timing sum is not finite");
+        JSONObject result = new JSONObject();
+        put(result, "audio_call_process_cpu_ms", numericArray(calls));
+        put(result, "mean_call_process_cpu_ms", sum / calls.length);
+        put(result, "max_call_process_cpu_ms", maximum);
+        put(result, "flush_process_cpu_ms", flushMs);
+        put(result, "processing_process_cpu_ms", sum + flushMs);
+        put(result, "process_cpu_seconds_per_audio_second", (sum + flushMs) / (realSamples * 1000.0 / SAMPLE_RATE));
+        put(result, "process_cpu_clock", "android.os.Process.getElapsedCpuTime; reported in milliseconds");
+        put(result, "process_cpu_scope", "Sum of process-wide CPU-time deltas during each unprofiled process call and flush, including all app threads and unrelated UI/runtime work in those intervals. Excludes preparation and gaps; clock granularity may round short intervals. Not exclusive kernel time, wall-time RTF, hardware utilization or energy.");
+        return result;
+    }
+
+    private JSONObject thermalSnapshot() {
+        JSONObject result = new JSONObject();
+        put(result, "scope", "Android thermal status snapshot; not a temperature reading or controlled thermal measurement");
+        try {
+            PowerManager power = context.getSystemService(PowerManager.class);
+            if (power == null) throw new IllegalStateException("Android PowerManager is unavailable");
+            put(result, "thermal_status_code", power.getCurrentThermalStatus());
+            put(result, "screen_interactive", power.isInteractive());
+            put(result, "device_idle", power.isDeviceIdleMode());
+            put(result, "power_save", power.isPowerSaveMode());
+            put(result, "available", true);
+        } catch (RuntimeException | LinkageError error) {
+            put(result, "available", false);
+            put(result, "error", error.toString());
+        }
+        return result;
+    }
+
     static JSONObject audioComparison(float[] actual, float[] reference) throws IOException {
         if (actual.length == 0 || actual.length != reference.length) throw new IOException("Waveform comparison lengths differ");
         requireFinite(actual); requireFinite(reference);
@@ -523,7 +625,7 @@ final class FullStreamingBenchmark {
 
     static JSONObject saveAudio(Path directory, String prefix, float[] values) throws Exception {
         requireFinite(values);
-        if (!prefix.matches("[a-z0-9-]{1,80}") || values.length > (MAX_BYTES - 44) / 4)
+        if (!prefix.matches("[A-Za-z0-9_-]{1,80}") || values.length > (MAX_BYTES - 44) / 4)
             throw new IOException("Invalid bounded output audio request");
         ByteBuffer raw = ByteBuffer.allocate(values.length * 4).order(ByteOrder.LITTLE_ENDIAN);
         raw.asFloatBuffer().put(values);

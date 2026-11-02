@@ -28,16 +28,19 @@ android {
         applicationId 'io.github.reuse.qnnprobe'
         minSdk 29
         targetSdk 35
-        versionCode 3
-        versionName '0.4.0-qnn-hybrid-preview1'
+        versionCode 4
+        versionName '0.5.0-resource-probe1'
         buildConfigField 'String', 'ORT_VERSION', '"1.29.0"'
         buildConfigField 'String', 'QNN_EP_VERSION', '"2.7.0"'
         buildConfigField 'String', 'QNN_RUNTIME_VERSION', '"2.51.0"'
         buildConfigField 'boolean', 'REUSE_NEON_FMA', reuseNeonFma
         buildConfigField 'boolean', 'REUSE_SCAN_N16_REGISTERS', reuseScanRegisters
         ndk { abiFilters 'arm64-v8a' }
+        externalNativeBuild { cmake { arguments '-DANDROID_STL=c++_static' } }
     }
     buildFeatures { buildConfig true }
+    ndkVersion '26.1.10909125'
+    externalNativeBuild { cmake { path file('../../native/resource/CMakeLists.txt'); version '3.22.1' } }
     sourceSets { main { assets.srcDir generatedAssets } }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17

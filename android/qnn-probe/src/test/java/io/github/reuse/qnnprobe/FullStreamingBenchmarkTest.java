@@ -15,6 +15,74 @@ import org.junit.Test;
 
 /** Pure data contracts; these tests never load native inference or start Android audio. */
 public class FullStreamingBenchmarkTest {
+    @Test public void resourceOptionsBoundThreadsModesAndFilenameSafeReportKeys() {
+        for (int threads = 1; threads <= 8; threads++) {
+            FullStreamingBenchmark.validateOptions(threads, "balanced", "cpu_t" + threads);
+            FullStreamingBenchmark.validateOptions(threads, "burst", "cpu_t" + threads + "_burst");
+        }
+        FullStreamingBenchmark.validateOptions(2, "balanced", "A".repeat(64));
+        for (int threads : new int[]{0, -1, 9, 16})
+            assertThrows(IllegalArgumentException.class, () -> FullStreamingBenchmark.validateOptions(threads, "balanced", "cpu_trial"));
+        for (String mode : new String[]{null, "", "BALANCED", "balanced\n", "sustained_high_performance"})
+            assertThrows(IllegalArgumentException.class, () -> FullStreamingBenchmark.validateOptions(2, mode, "cpu_trial"));
+        for (String key : new String[]{null, "", "a".repeat(65), "../trial", "/trial", "trial/path", "trial\\path", "a.b", "trial-name", "trial name", "é", "1trial"})
+            assertThrows(IllegalArgumentException.class, () -> FullStreamingBenchmark.validateOptions(2, "balanced", key));
+    }
+
+    @Test public void legacyPrefixAndCpuOnlySelectionKeepTrialsSeparateWithoutRequestingHtp() {
+        assertEquals("full", FullStreamingBenchmark.outputPrefix("full_stream_benchmark"));
+        assertEquals("resource_cpu_t1", FullStreamingBenchmark.outputPrefix("resource_cpu_t1"));
+        assertEquals("resource_cpu_t2", FullStreamingBenchmark.outputPrefix("resource_cpu_t2"));
+        assertArrayEquals(new FullStreamingBenchmark.Mode[]{FullStreamingBenchmark.Mode.CPU_FP32,
+                FullStreamingBenchmark.Mode.CPU_QDQ}, FullStreamingBenchmark.selectedModes(false));
+        assertArrayEquals(FullStreamingBenchmark.Mode.values(), FullStreamingBenchmark.selectedModes(true));
+    }
+
+    @Test public void resourceTrialsKeepTheirSavedAudioFilesInTheSameDirectory() throws Exception {
+        Path directory = Files.createTempDirectory("reuse-resource-audio-test");
+        String first = FullStreamingBenchmark.outputPrefix("cpu_t1") + "-cpu-qdq";
+        String second = FullStreamingBenchmark.outputPrefix("cpu_t2") + "-cpu-qdq";
+        try {
+            JSONObject one = FullStreamingBenchmark.saveAudio(directory, first, new float[]{.1f});
+            JSONObject two = FullStreamingBenchmark.saveAudio(directory, second, new float[]{.2f});
+            assertEquals(first + ".f32", one.getString("float32_file"));
+            assertEquals(second + ".f32", two.getString("float32_file"));
+            ByteBuffer oneRaw = ByteBuffer.wrap(Files.readAllBytes(directory.resolve(first + ".f32"))).order(ByteOrder.LITTLE_ENDIAN);
+            ByteBuffer twoRaw = ByteBuffer.wrap(Files.readAllBytes(directory.resolve(second + ".f32"))).order(ByteOrder.LITTLE_ENDIAN);
+            assertEquals(.1f, oneRaw.getFloat(), 0);
+            assertEquals(.2f, twoRaw.getFloat(), 0);
+        } finally {
+            for (String prefix : new String[]{first, second}) {
+                Files.deleteIfExists(directory.resolve(prefix + ".f32"));
+                Files.deleteIfExists(directory.resolve(prefix + ".wav"));
+            }
+            Files.deleteIfExists(directory);
+        }
+    }
+
+    @Test public void processCpuSummaryAllowsParallelCpuTimeAndDoesNotTreatItAsWallDeadlineOrEnergy() throws Exception {
+        JSONObject summary = FullStreamingBenchmark.processCpuSummary(new double[]{180, 160}, 20, 1600);
+        assertEquals(360, summary.getDouble("processing_process_cpu_ms"), 0);
+        assertEquals(170, summary.getDouble("mean_call_process_cpu_ms"), 0);
+        assertEquals(180, summary.getDouble("max_call_process_cpu_ms"), 0);
+        assertEquals(20, summary.getDouble("flush_process_cpu_ms"), 0);
+        assertEquals(1.8, summary.getDouble("process_cpu_seconds_per_audio_second"), 1e-12);
+        assertFalse(summary.has("calls_over_100ms"));
+        assertFalse(summary.has("offline_processing_rtf"));
+        assertTrue(summary.getString("process_cpu_scope").contains("all app threads"));
+        assertTrue(summary.getString("process_cpu_scope").contains("energy"));
+        assertEquals(0, FullStreamingBenchmark.processCpuDeltaMillis(19, 19), 0);
+        assertEquals(12, FullStreamingBenchmark.processCpuDeltaMillis(19, 31), 0);
+        assertThrows(IOException.class, () -> FullStreamingBenchmark.processCpuDeltaMillis(-1, 2));
+        assertThrows(IOException.class, () -> FullStreamingBenchmark.processCpuDeltaMillis(5, 4));
+        for (double invalid : new double[]{-1, Double.NaN, Double.POSITIVE_INFINITY}) {
+            assertThrows(IOException.class, () -> FullStreamingBenchmark.processCpuSummary(new double[]{invalid}, 0, 800));
+            assertThrows(IOException.class, () -> FullStreamingBenchmark.processCpuSummary(new double[]{0}, invalid, 800));
+        }
+        assertThrows(IOException.class, () -> FullStreamingBenchmark.processCpuSummary(new double[]{Double.MAX_VALUE, Double.MAX_VALUE}, 0, 800));
+        assertThrows(IOException.class, () -> FullStreamingBenchmark.processCpuSummary(new double[0], 0, 800));
+    }
+
     @Test public void rtfIncludesFlushAndUsesRealInputDuration() throws Exception {
         JSONObject summary = FullStreamingBenchmark.timingSummary(new double[]{10, 100, 120}, 20, 800);
         assertEquals(250, summary.getDouble("processing_wall_ms"), 0);

@@ -59,6 +59,10 @@ final class QnnProbeRunner {
     private enum Mode { CPU_FP32, CPU_QDQ, QNN_HTP }
 
     Result run(Progress progress) {
+        return run(progress, null);
+    }
+
+    Result run(Progress progress, File existingPrivateCaptureDirectory) {
         JSONObject report = new JSONObject();
         Path directory = null;
         OrtEnvironment environment = null;
@@ -109,10 +113,15 @@ final class QnnProbeRunner {
                 put(device, "soc_manufacturer", Build.SOC_MANUFACTURER); put(device, "soc_model", Build.SOC_MODEL);
             }
             put(report, "android_device", device);
-            String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(new Date());
-            directory = context.getFilesDir().toPath().resolve("captures")
-                    .resolve(stamp + "-" + UUID.randomUUID().toString().substring(0, 8));
-            Files.createDirectories(directory);
+            if (existingPrivateCaptureDirectory == null) {
+                String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(new Date());
+                directory = context.getFilesDir().toPath().resolve("captures")
+                        .resolve(stamp + "-" + UUID.randomUUID().toString().substring(0, 8));
+                Files.createDirectories(directory);
+            } else {
+                directory = validateCaptureDirectory(context.getFilesDir().toPath().resolve("captures"),
+                        existingPrivateCaptureDirectory.toPath());
+            }
 
             stage = "assets.manifest";
             JSONObject manifest = new JSONObject(new String(asset("manifest.json"), StandardCharsets.UTF_8));
@@ -242,6 +251,18 @@ final class QnnProbeRunner {
             catch (Exception error) { put(report, "diagnostics_write_error", stackTrace(error)); }
         }
         return new Result(directory == null ? null : directory.toFile(), report);
+    }
+
+    static Path validateCaptureDirectory(Path capturesRoot, Path requested) throws IOException {
+        if (capturesRoot == null || requested == null || !Files.isDirectory(capturesRoot, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                || Files.isSymbolicLink(capturesRoot)
+                || !Files.isDirectory(requested, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                || Files.isSymbolicLink(requested))
+            throw new IOException("Existing capture directory must be a real app-private directory");
+        Path root = capturesRoot.toRealPath(), actual = requested.toRealPath();
+        if (!root.equals(actual.getParent()))
+            throw new IOException("Existing capture directory must be an immediate child of app files/captures");
+        return actual;
     }
 
     private void runCase(OrtEnvironment environment, OrtEpDevice selected, Path backend,
