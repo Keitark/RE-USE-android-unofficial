@@ -55,6 +55,17 @@ These runtime licenses do not remove the NVIDIA model restrictions above.
 
 ## Android demo dependencies
 
+The separate `qnn-probe` app uses ONNX Runtime Android 1.29.0, the MIT-licensed
+QNN execution-provider plugin 2.7.0, and the proprietary Qualcomm QNN runtime
+2.51.0. Original licenses and third-party notices are retained under
+`docs/licenses/qnn/` and packaged in the probe APK. The Qualcomm runtime is
+resolved from Maven Central and distributed only as incorporated in the app;
+this repository does not publish a standalone Qualcomm runtime AAR or SDK.
+The trained projection weights, sample-derived fixtures and model-specific
+fixture generator remain under the NVIDIA noncommercial terms above. The
+independent Java probe UI and synthetic test are MIT. See the
+[QNN component notices](docs/licenses/qnn/README.md).
+
 The phone demo uses AndroidX Core 1.13.1 and its transitive AndroidX/Kotlin
 dependencies, under Apache License 2.0 and their retained notices. A complete
 Apache 2.0 license is included in `licenses/Apache-2.0.txt` and in the phone APK.

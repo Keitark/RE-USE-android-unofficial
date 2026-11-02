@@ -26,3 +26,5 @@ project(':even-probe-host').projectDir = file('android/even-probe-host')
 project(':live-companion').projectDir = file('android/live-companion')
 project(':reuse-audio').projectDir = file('android/reuse-audio')
 project(':phone-demo').projectDir = file('android/phone-demo')
+include ':qnn-probe'
+project(':qnn-probe').projectDir = file('android/qnn-probe')

@@ -1,0 +1,304 @@
+{
+  "schema_version": 1,
+  "recorded_utc": "2026-11-02T08:50:54.081999+00:00",
+  "scope": "Host build/package verification only; no physical NPU execution or full RE-USE acceleration measured",
+  "apk": {
+    "file": "reuse-qnn-probe.apk",
+    "bytes": 101786476,
+    "sha256": "b0cb1c12ad4e51e22548e459b6a748b50f6f6ff48416cfc066b1ebc036db137f",
+    "application_id": "io.github.reuse.qnnprobe",
+    "version_code": 1,
+    "version_name": "0.3.0-qnn-probe1",
+    "min_sdk": 29,
+    "target_sdk": 35,
+    "abis": [
+      "arm64-v8a"
+    ],
+    "debug_signed": true,
+    "signature_v2_verified": true,
+    "signer_certificate_sha256": "7af2554a1fe30be6a3d1c8e04f79a4e733f77f8d78d9f04a03e4cce312e55fbb"
+  },
+  "validation": {
+    "generator_host_tests": 6,
+    "java_host_tests": 7,
+    "lint_errors": 0,
+    "lint_warnings": 8,
+    "zip_crc_passed": true,
+    "all_fixture_bytes_verified": true,
+    "all_notice_bytes_verified": true,
+    "native_libraries_byte_identical_to_maven": true,
+    "internet_permission": false,
+    "microphone_permission": false,
+    "telemetry_initializer_removed": true,
+    "native_extraction_enabled": true,
+    "physical_device_connected": false,
+    "physical_htp_execution_tested": false,
+    "physical_htp_execution_verified": false,
+    "full_reuse_acceleration_tested": false,
+    "audio_quality_tested": false,
+    "rtf_measured": false,
+    "fixture_full_regeneration_byte_identical_on_this_host": true
+  },
+  "commands": [
+    ".venv/Scripts/python.exe tools/test_prepare_qnn_probe.py",
+    "./gradlew.bat :qnn-probe:testDebugUnitTest :qnn-probe:assembleDebug :qnn-probe:lintDebug --console=plain",
+    "apksigner verify --verbose --print-certs reuse-qnn-probe.apk",
+    "aapt dump permissions reuse-qnn-probe.apk"
+  ],
+  "dependencies": [
+    {
+      "coordinate": "com.microsoft.onnxruntime:onnxruntime-android:1.29.0",
+      "aar_sha256": "e97540ca78fe36f6fe2013f82843414fb843b6c7681fb04644cba5e1406662dd",
+      "aar_bytes": 51897836
+    },
+    {
+      "coordinate": "com.qualcomm.qti:onnxruntime-android-qnn:2.7.0",
+      "aar_sha256": "ecd36df222e2a947ceb13bdd6fec181d1f1841b40379e21ce519830f2fbd562a",
+      "aar_bytes": 1663668
+    },
+    {
+      "coordinate": "com.qualcomm.qti:qnn-runtime:2.51.0",
+      "aar_sha256": "6388face1d5aa5e8958d745e5a547e92b5bec6fc332dfb1b438b1e17ffa02861",
+      "aar_bytes": 75297348
+    }
+  ],
+  "fixtures": [
+    {
+      "path": "assets/qnn/LICENSE-NVIDIA.txt",
+      "bytes": 4060,
+      "sha256": "6d1daa9c89ec421ba80fe051ac9f0dd46010d4fa4e8f4af654eb8e62f64e2ad5"
+    },
+    {
+      "path": "assets/qnn/manifest.json",
+      "bytes": 5492,
+      "sha256": "fb1c8475399584dceabbe727ac4782c7fee0f3c95099ccf421c2ab8526ea7644"
+    },
+    {
+      "path": "assets/qnn/reuse_in_proj_u8.input.f32",
+      "bytes": 103680,
+      "sha256": "1ea8c6575efb3bebabff1eac91d2d2677302cd3bdc65a97c9d7c721f3b587c66"
+    },
+    {
+      "path": "assets/qnn/reuse_in_proj_u8.onnx",
+      "bytes": 33679,
+      "sha256": "5ed2381a37f6b7ffe30fab820ef6596dd2fd520ddd30246668c6d6569e454828"
+    },
+    {
+      "path": "assets/qnn/reuse_in_proj_u8.output.f32",
+      "bytes": 829440,
+      "sha256": "27fb93875ac5d8d5404fa040c3bee74564574ec102869369ecca6af55ac28659"
+    },
+    {
+      "path": "assets/qnn/synthetic_matmul_u8.input.f32",
+      "bytes": 1024,
+      "sha256": "3242e7c4694b75121c7ebf65a6f30de627f8c0c4bb20fb053d41537fae5d01ea"
+    },
+    {
+      "path": "assets/qnn/synthetic_matmul_u8.onnx",
+      "bytes": 1160,
+      "sha256": "fe3fe293f9b6d8cfeac6d3a5413bb926a81633edb566543fd601e3a1d532cead"
+    },
+    {
+      "path": "assets/qnn/synthetic_matmul_u8.output.f32",
+      "bytes": 1024,
+      "sha256": "93e8874cdd2f50e711267a4e90f44b236d9ed348b35f72be5ffd1b29f9d3846d"
+    }
+  ],
+  "notices": [
+    {
+      "path": "assets/qnn-notices/Apache-2.0.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "assets/qnn-notices/NVIDIA-NSCLv1.txt",
+      "bytes": 4060,
+      "sha256": "6d1daa9c89ec421ba80fe051ac9f0dd46010d4fa4e8f4af654eb8e62f64e2ad5"
+    },
+    {
+      "path": "assets/qnn-notices/ONNXRuntime-MIT.txt",
+      "bytes": 1073,
+      "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
+    },
+    {
+      "path": "assets/qnn-notices/ONNXRuntime-ThirdPartyNotices.txt",
+      "bytes": 336906,
+      "sha256": "53d3fa5821ac016ac24dd35775c996efec86e2ae0841e9a3a5e146c0ae916845"
+    },
+    {
+      "path": "assets/qnn-notices/QNN-EP-MIT.txt",
+      "bytes": 1140,
+      "sha256": "f11e754f932564a0d8a9ad2c233bf671253dde137d3e2ef3082448bbe83e1764"
+    },
+    {
+      "path": "assets/qnn-notices/QNN-EP-ThirdPartyNotices.txt",
+      "bytes": 69810,
+      "sha256": "d039f057d20690116daa1fc65165cd0221ee168208d770062a84c1b4d579abb1"
+    },
+    {
+      "path": "assets/qnn-notices/Qualcomm-AI-Stack-License.pdf",
+      "bytes": 147577,
+      "sha256": "ec1dccfdcba5c6e64126e84199b8362bf4999107bfa567ebe831dbb4c461692b"
+    },
+    {
+      "path": "assets/qnn-notices/Qualcomm-AI-Stack-License.txt",
+      "bytes": 25307,
+      "sha256": "3a157c0013dadb4d0ee2379e1f90eb28be405d3507d480dd20bc0136586b35a4"
+    },
+    {
+      "path": "assets/qnn-notices/Qualcomm-NOTICE.txt",
+      "bytes": 130445,
+      "sha256": "0c5e8aad3506d0ab881cabaf0dae8de64e1784dc1ee6c873caf24a78fbf01924"
+    },
+    {
+      "path": "assets/qnn-notices/RE-USE-Project-LICENSE.txt",
+      "bytes": 1772,
+      "sha256": "b812945f84e51ae25965f0380b44828b22acea873cdfab7793206bbaa12383f8"
+    },
+    {
+      "path": "assets/qnn-notices/README.md",
+      "bytes": 2625,
+      "sha256": "9468e02e9467c1a2f9dbaf9bdac3ef2b98fb7d2ca0386f4378031d001876f295"
+    }
+  ],
+  "native_libraries": [
+    {
+      "path": "lib/arm64-v8a/libonnxruntime.so",
+      "bytes": 32120992,
+      "sha256": "3a602b463d434d20fbf69cd1b8bdfd2f86a2cb67d08de97aec8f62476fa4ab87",
+      "source": "com.microsoft.onnxruntime:onnxruntime-android:1.29.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libonnxruntime4j_jni.so",
+      "bytes": 111648,
+      "sha256": "45673d7fba377fe0555892460766051b5993d65c9f65e528dc9d515c07c9f683",
+      "source": "com.microsoft.onnxruntime:onnxruntime-android:1.29.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libonnxruntime_providers_qnn.so",
+      "bytes": 4448624,
+      "sha256": "7616d66073d4d64fead7ed6f7b2384fe9e0e9f708fbce9a67dee215b122a2527",
+      "source": "com.qualcomm.qti:onnxruntime-android-qnn:2.7.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libQnnDsp.so",
+      "bytes": 1768416,
+      "sha256": "da5721e6347f95672ad9575d7ffda2bbc1eef275d3f4713e387d265885324b1a",
+      "source": "com.qualcomm.qti:qnn-runtime:2.51.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libQnnDspV66Skel.so",
+      "bytes": 2438864,
+      "sha256": "a6274e251ca41ebb762351ca8ba1b6c05496245be58a6f72571c63ce1fd84a32",
+      "source": "com.qualcomm.qti:qnn-runtime:2.51.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libQnnDspV66Stub.so",
+      "bytes": 328584,
+      "sha256": "95aa01e2584c988ee30531a11dbb28452b1a7e81ee7463bfed0877062395a1bf",
+      "source": "com.qualcomm.qti:qnn-runtime:2.51.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libQnnGpu.so",
+      "bytes": 12367840,
+      "sha256": "a0cb0d81b5d65431fd891d15f69ce842bc79631177ff4100ea3759df6bddee38",
+      "source": "com.qualcomm.qti:qnn-runtime:2.51.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libQnnHtp.so",
+      "bytes": 4158496,
+      "sha256": "ebf19c66128da2169176d298b30fcd149d14e2d03f96e629538e26f56b7e2d7d",
+      "source": "com.qualcomm.qti:qnn-runtime:2.51.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libQnnHtpPrepare.so",
+      "bytes": 88106984,
+      "sha256": "1e6e63467675a12562b6f317c39345144fb7383dd4d0314b4bde0d25d2b17f59",
+      "source": "com.qualcomm.qti:qnn-runtime:2.51.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libQnnHtpV68Skel.so",
+      "bytes": 13136716,
+      "sha256": "8ec5c35d40c3c41101a19f201a8606c4c3d337ce4c14c387f87190b286849ec2",
+      "source": "com.qualcomm.qti:qnn-runtime:2.51.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libQnnHtpV68Stub.so",
+      "bytes": 795440,
+      "sha256": "4128433f57dd2bcfb57ec960b71860f8b67b46f70d6216c9a09389b8185d5cbc",
+      "source": "com.qualcomm.qti:qnn-runtime:2.51.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libQnnHtpV69Skel.so",
+      "bytes": 13180108,
+      "sha256": "c09d91bea6f95a40c5adff7ac04394893f5eee777a71b58eb4fd64249128151b",
+      "source": "com.qualcomm.qti:qnn-runtime:2.51.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libQnnHtpV69Stub.so",
+      "bytes": 795440,
+      "sha256": "1614baad47088ff5c15d9aead8509cdd7999fb16adb8379e9f8c6b113f74c930",
+      "source": "com.qualcomm.qti:qnn-runtime:2.51.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libQnnHtpV73Skel.so",
+      "bytes": 19685168,
+      "sha256": "686371152962293fcfcb1f025a12aeccc9a9f610bc307d5991bd7c55f28c8179",
+      "source": "com.qualcomm.qti:qnn-runtime:2.51.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libQnnHtpV73Stub.so",
+      "bytes": 802904,
+      "sha256": "11f8a0fe4ae121c135b552febcd884048222e56c4da7db528c5a7fe5f18edf91",
+      "source": "com.qualcomm.qti:qnn-runtime:2.51.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libQnnHtpV75Skel.so",
+      "bytes": 19664660,
+      "sha256": "6cab0630a3fc9ba93368905660455ea916a61c208e162354b54bebd1ef950941",
+      "source": "com.qualcomm.qti:qnn-runtime:2.51.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libQnnHtpV75Stub.so",
+      "bytes": 802904,
+      "sha256": "ecbb2eec558fd1ba818e5da7dbfcd34484f4cdabe569b86a9d4fa5ef6e646157",
+      "source": "com.qualcomm.qti:qnn-runtime:2.51.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libQnnHtpV79Skel.so",
+      "bytes": 19486584,
+      "sha256": "43c87a5df1e970ba3e518b9ee33962036dd111ac9331dea6be154d8ff460ede8",
+      "source": "com.qualcomm.qti:qnn-runtime:2.51.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libQnnHtpV79Stub.so",
+      "bytes": 802904,
+      "sha256": "21ea3c0d52646332c2312129a90014ed3e6255d198a0109e9c991dd4bacaecf7",
+      "source": "com.qualcomm.qti:qnn-runtime:2.51.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libQnnHtpV81Skel.so",
+      "bytes": 20677132,
+      "sha256": "5e858eb739f75ab155d58977c9ab4fa678376881d4dae5cc260fb1cf2eab14c1",
+      "source": "com.qualcomm.qti:qnn-runtime:2.51.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libQnnHtpV81Stub.so",
+      "bytes": 827328,
+      "sha256": "c610ff7a508fa4abb44ef90e2f490035879fa9c19314bac9b2faed3b4aa5cc45",
+      "source": "com.qualcomm.qti:qnn-runtime:2.51.0"
+    },
+    {
+      "path": "lib/arm64-v8a/libQnnSystem.so",
+      "bytes": 4125504,
+      "sha256": "460e782ff0d4de0ff89e1fbf2f4d8a7f96a0b86203d1de0b6db7413d37bc90af",
+      "source": "com.qualcomm.qti:qnn-runtime:2.51.0"
+    }
+  ],
+  "stable_cpu_apk_sha256_unchanged": "eca2ffde807aa18b340c1cec87a027c8ae1be082634cafdb65736502d4e5b37c",
+  "open_validation": [
+    "Physical Xperia IV HTP execution and diagnostic export",
+    "Real-model Conv regions and full streaming CPU/NPU timing",
+    "Representative multi-clip quality calibration"
+  ]
+}

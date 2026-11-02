@@ -1,0 +1,60 @@
+plugins { id 'com.android.application' }
+
+// Keep this module independent of :reuse and its pinned CPU/GPU runtime.
+def probeAssetsSource = rootProject.file('.research/qnn-probe-assets')
+def probeNoticesSource = rootProject.file('docs/licenses/qnn')
+def generatedAssets = layout.buildDirectory.dir('generated/qnnProbeAssets')
+def copyQnnProbeAssets = tasks.register('copyQnnProbeAssets', Sync) {
+    inputs.dir(probeAssetsSource)
+    inputs.dir(probeNoticesSource)
+    into(generatedAssets)
+    from(probeAssetsSource) { into 'qnn' }
+    from(probeNoticesSource) { into 'qnn-notices' }
+    doFirst {
+        ['manifest.json', 'synthetic_matmul_u8.onnx', 'reuse_in_proj_u8.onnx'].each { name ->
+            if (!new File(probeAssetsSource, name).isFile())
+                throw new GradleException("Missing QNN probe asset ${name}; generate the probe fixtures before building. See docs/qnn-probe.md.")
+        }
+    }
+}
+
+android {
+    namespace 'io.github.reuse.qnnprobe'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'io.github.reuse.qnnprobe'
+        minSdk 29
+        targetSdk 35
+        versionCode 1
+        versionName '0.3.0-qnn-probe1'
+        buildConfigField 'String', 'ORT_VERSION', '"1.29.0"'
+        buildConfigField 'String', 'QNN_EP_VERSION', '"2.7.0"'
+        buildConfigField 'String', 'QNN_RUNTIME_VERSION', '"2.51.0"'
+        ndk { abiFilters 'arm64-v8a' }
+    }
+    buildFeatures { buildConfig true }
+    sourceSets { main { assets.srcDir generatedAssets } }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    buildTypes { release { minifyEnabled false } }
+    // FastRPC loads the Hexagon Skel files by filesystem path.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+            // Preserve the vendor binaries exactly as supplied in Maven.
+            keepDebugSymbols += ['**/*.so']
+        }
+    }
+}
+
+tasks.named('preBuild').configure { dependsOn(copyQnnProbeAssets) }
+dependencies {
+    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.29.0'
+    implementation 'com.qualcomm.qti:onnxruntime-android-qnn:2.7.0'
+    implementation 'com.qualcomm.qti:qnn-runtime:2.51.0'
+    implementation 'androidx.core:core:1.13.1'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+}

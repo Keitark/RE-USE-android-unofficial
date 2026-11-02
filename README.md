@@ -94,6 +94,11 @@ selection through a separately built runtime and APK. It retains CPU execution
 for unsupported operators. Physical-device GPU compatibility, quality and
 performance remain unverified; the existing CPU download above is unchanged.
 
+A separate [QNN HTP probe](docs/qnn-probe.md) tests direct Qualcomm NPU access
+with a synthetic graph and one quantized RE-USE projection. It does not record
+audio or accelerate the full microphone pipeline. Its runtime dependencies are
+isolated from the existing demos.
+
 The demo is an adapter around reusable AARs. Both the phone app and optional G2
 companion consume the same enhancement pipeline.
 
