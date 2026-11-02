@@ -1,0 +1,842 @@
+{
+  "schema_version": 1,
+  "scope": "Sanitized bounded Conv-only experiments on the same public clip; single-, nine- and eight-Conv graph variants are distinct. No perceptual quality acceptance or general real-time guarantee.",
+  "device": {
+    "manufacturer": "Sony",
+    "model": "SO-51C",
+    "family": "Xperia 1 IV",
+    "soc": "SM8450",
+    "android_release": "14"
+  },
+  "runtime": {
+    "onnxruntime": "1.29.0",
+    "qnn_plugin_package": "2.7.0",
+    "qnn_runtime_package": "2.51.0",
+    "cpu_intra_op_threads": 2,
+    "cpu_inter_op_threads": 1,
+    "native_neon_fma_enabled": true,
+    "native_scan_n16_registers_enabled": true
+  },
+  "public_input": {
+    "source_sample_sha256": "dd54fe1decefe2e5c11c489f3d3d5b0e567bdd840f71bf4007cbe6349194f794",
+    "input_8k_float32_sha256": "e6af48deb208432e7eeb624058b98ceb4b4542ab1a206c04fa621f3684ac33b5",
+    "sample_rate": 8000,
+    "samples": 51840,
+    "seconds": 6.48,
+    "exit_layers": 3,
+    "lookahead_hops": 0,
+    "frames_per_call": 5,
+    "state_definitions": "21 explicit FP32 recurrent states retained; feedback independent per backend"
+  },
+  "single_conv": {
+    "quantized_convolutions": 1,
+    "candidate_model_sha256": "605740abc6dc59d7c77776a12ee9ef6534ea58ea9936c7f3970a1816c93a9d9f",
+    "separate_receipt": "qnn-xperia-hybrid.json",
+    "scope": "Earlier conservative candidate; its measurements are a separate run and do not describe either multiconv graph."
+  },
+  "nine_conv": {
+    "quantized_convolutions": 9,
+    "physical_status": "EIGHT_ISOLATED_CASES_PASS_ONE_FAILS_NPU_CANDIDATE_REJECTED",
+    "foreground_conditions": {
+      "screen_interactive_at_start": true,
+      "device_idle_at_start": false,
+      "power_save_at_start": false,
+      "keyguard_locked_at_start": false,
+      "foreground_timing_qualified": true
+    },
+    "isolated_case_count": 9,
+    "verified_isolated_case_count": 8,
+    "isolated_qnn_cases": [
+      {
+        "case": "reuse_encoder_dense1_conv_u8",
+        "model_sha256": "d68d1b4deaad68358ee5b3bb4115a406c41b83bc214bf256d766fa1c19c5a09b",
+        "numerical_passed": true,
+        "provider_execution_verified": true,
+        "maximum_absolute_error": 0.5705184936523438,
+        "predeclared_absolute_tolerance": 0.5990444183349609,
+        "outside_tolerance_elements": 0,
+        "tolerance_relaxed": false,
+        "independently_read_provider_kernel_events": {
+          "QNNExecutionProvider": 25
+        }
+      },
+      {
+        "case": "reuse_encoder_dense2_conv_u8",
+        "model_sha256": "7fde436c6a20f031fa3a06dbb9c167367c9e462cd693630da0533809191d433f",
+        "numerical_passed": false,
+        "provider_execution_verified": false,
+        "maximum_absolute_error": 1.0663089752197266,
+        "predeclared_absolute_tolerance": 0.7464160323143005,
+        "outside_tolerance_elements": 25,
+        "tolerance_relaxed": false,
+        "failure_stage": "session.warmup_execute"
+      },
+      {
+        "case": "reuse_encoder_dilated_conv_u8",
+        "model_sha256": "7b3bca87e4e78674cbd8fb37724dae7977b79ba18e6a220e8a3399e0f948d713",
+        "numerical_passed": true,
+        "provider_execution_verified": true,
+        "maximum_absolute_error": 0.47991371154785156,
+        "predeclared_absolute_tolerance": 1.0078135371208192,
+        "outside_tolerance_elements": 0,
+        "tolerance_relaxed": false,
+        "independently_read_provider_kernel_events": {
+          "QNNExecutionProvider": 25
+        }
+      },
+      {
+        "case": "reuse_mask_dense1_conv_u8",
+        "model_sha256": "73604a67acd3d0f571c25622c1d519b53c35432af05ad96be586d978f33eedf5",
+        "numerical_passed": true,
+        "provider_execution_verified": true,
+        "maximum_absolute_error": 0.4778251647949219,
+        "predeclared_absolute_tolerance": 1.0034261494874954,
+        "outside_tolerance_elements": 0,
+        "tolerance_relaxed": false,
+        "independently_read_provider_kernel_events": {
+          "QNNExecutionProvider": 25
+        }
+      },
+      {
+        "case": "reuse_mask_dense2_conv_u8",
+        "model_sha256": "5f84073528e41495e1a0b336a3831700da761154b958fe413ff552d1a7b84e13",
+        "numerical_passed": true,
+        "provider_execution_verified": true,
+        "maximum_absolute_error": 0.9764499664306641,
+        "predeclared_absolute_tolerance": 1.0252721518278123,
+        "outside_tolerance_elements": 0,
+        "tolerance_relaxed": false,
+        "independently_read_provider_kernel_events": {
+          "QNNExecutionProvider": 25
+        }
+      },
+      {
+        "case": "reuse_mask_dense3_conv_u8",
+        "model_sha256": "7aeea26b91a99c27ae0de991d8c5ce649fc8fa1a66cfb5da61816b44f2e226fc",
+        "numerical_passed": true,
+        "provider_execution_verified": true,
+        "maximum_absolute_error": 0.6247978210449219,
+        "predeclared_absolute_tolerance": 1.3120697915554047,
+        "outside_tolerance_elements": 0,
+        "tolerance_relaxed": false,
+        "independently_read_provider_kernel_events": {
+          "QNNExecutionProvider": 25
+        }
+      },
+      {
+        "case": "reuse_phase_dense1_conv_u8",
+        "model_sha256": "052fd1b18c8bc22ebefa7c06e3ba76ebf23e79dd4017006f653deab3185f42f7",
+        "numerical_passed": true,
+        "provider_execution_verified": true,
+        "maximum_absolute_error": 0.40018463134765625,
+        "predeclared_absolute_tolerance": 0.8403854101896286,
+        "outside_tolerance_elements": 0,
+        "tolerance_relaxed": false,
+        "independently_read_provider_kernel_events": {
+          "QNNExecutionProvider": 25
+        }
+      },
+      {
+        "case": "reuse_phase_dense2_conv_u8",
+        "model_sha256": "c74a20fe70104b3659102137cec026978a4e2c23fd6cab92e58dece341dd6aca",
+        "numerical_passed": true,
+        "provider_execution_verified": true,
+        "maximum_absolute_error": 1.3826675415039062,
+        "predeclared_absolute_tolerance": 1.4517995417118073,
+        "outside_tolerance_elements": 0,
+        "tolerance_relaxed": false,
+        "independently_read_provider_kernel_events": {
+          "QNNExecutionProvider": 25
+        }
+      },
+      {
+        "case": "reuse_phase_dense3_conv_u8",
+        "model_sha256": "7b9a55799cd02bfe99216d864496c66af5537d22e3dbf12b73be2f0719483162",
+        "numerical_passed": true,
+        "provider_execution_verified": true,
+        "maximum_absolute_error": 1.0334320068359375,
+        "predeclared_absolute_tolerance": 2.1702017068862918,
+        "outside_tolerance_elements": 0,
+        "tolerance_relaxed": false,
+        "independently_read_provider_kernel_events": {
+          "QNNExecutionProvider": 25
+        }
+      }
+    ],
+    "unpaced_cpu": {
+      "scope": "Sum of complete unprofiled enhancer.process calls plus flush, including Java STFT/synthesis and synchronous inference; excludes compilation, profiled zero warm-up, profile verification, checkpoints, comparisons and file writes. Offline unpaced processing, not live playout.",
+      "profiling_in_timed_calls": false,
+      "audio_calls": 65,
+      "flush_calls": 1,
+      "backends": {
+        "cpu_fp32": {
+          "model_sha256": "f950dcfb9321191b2bcb3ab9afa3e100c40e5c64dd1de1d30849be4c1aacce32",
+          "execution_verified": true,
+          "mean_call_wall_ms": 66.63984607692306,
+          "p95_call_wall_ms": 69.411042,
+          "max_call_wall_ms": 71.199166,
+          "calls_over_100ms": 0,
+          "offline_processing_rtf": 0.6790563424382715,
+          "completed_audio_calls": 65,
+          "source_input_samples": 51840,
+          "trimmed_output_samples": 51840,
+          "all_output_samples_finite": true,
+          "warmup_profile": {
+            "scope": "Three zero-input warm-up calls only; timed audio and flush are unprofiled",
+            "independently_read": true,
+            "model_run_events": 3,
+            "provider_kernel_events": {
+              "CPUExecutionProvider": 1434
+            }
+          }
+        },
+        "cpu_qdq": {
+          "model_sha256": "1fdc23651daba8dd0bbacc74236cd5048df2ecfe2f70eccabf96e696e68bad88",
+          "execution_verified": true,
+          "mean_call_wall_ms": 51.83286456923077,
+          "p95_call_wall_ms": 54.267969,
+          "max_call_wall_ms": 60.880729,
+          "calls_over_100ms": 0,
+          "offline_processing_rtf": 0.5278219841049383,
+          "completed_audio_calls": 65,
+          "source_input_samples": 51840,
+          "trimmed_output_samples": 51840,
+          "all_output_samples_finite": true,
+          "warmup_profile": {
+            "scope": "Three zero-input warm-up calls only; timed audio and flush are unprofiled",
+            "independently_read": true,
+            "model_run_events": 3,
+            "provider_kernel_events": {
+              "CPUExecutionProvider": 1488
+            }
+          }
+        }
+      }
+    },
+    "paced_16k_cpu": {
+      "scope": "Deterministically interpolated public clip through actual 16\u21928\u219216 kHz FIR, bounded queue, model and recording lifecycle. No microphone/source-capture or speaker-playout measurement. QNN profile evidence is startup warm-up only.",
+      "public_input_16k_pcm_sha256": "43941e2d196e71dd26934bd04730927c21042164275048dd6008430ba93430fc",
+      "input_samples": 103680,
+      "expected_output_samples_with_fir_tail": 103868,
+      "fir_tail_samples": 188,
+      "packet_samples": 800,
+      "packet_period_ms": 50,
+      "fixture_interpolation": "Even samples retain the 8 kHz source; odd samples are adjacent-sample means, with the last sample held. PCM16 uses ties-to-even rounding and saturation. This test fixture conversion is not the production FIR resampler.",
+      "backends": {
+        "cpu_fp32": {
+          "model_sha256": "f950dcfb9321191b2bcb3ab9afa3e100c40e5c64dd1de1d30849be4c1aacce32",
+          "pipeline_verified": true,
+          "process_mean_ms": 68.92962978461537,
+          "process_p95_ms": 75.155312,
+          "process_max_ms": 81.963698,
+          "processing_rtf": 0.717508375462963,
+          "submitted_packets": 130,
+          "submitted_input_samples": 103680,
+          "input_samples": 103680,
+          "processed_input_samples": 103680,
+          "output_samples": 103868,
+          "dropped_input_samples": 0,
+          "queue_overflows": 0,
+          "queued_input_samples": 0,
+          "max_queue_samples": 800,
+          "queue_age_max_ms": 34.062552,
+          "deadline_misses": 0,
+          "model_calls": 65,
+          "pipeline_finite_output_checks_passed": true,
+          "worker_cleanup_completed": true
+        },
+        "cpu_qdq": {
+          "model_sha256": "1fdc23651daba8dd0bbacc74236cd5048df2ecfe2f70eccabf96e696e68bad88",
+          "pipeline_verified": true,
+          "process_mean_ms": 57.60079406153846,
+          "process_p95_ms": 63.496146,
+          "process_max_ms": 64.584063,
+          "processing_rtf": 0.5924532216049383,
+          "submitted_packets": 130,
+          "submitted_input_samples": 103680,
+          "input_samples": 103680,
+          "processed_input_samples": 103680,
+          "output_samples": 103868,
+          "dropped_input_samples": 0,
+          "queue_overflows": 0,
+          "queued_input_samples": 0,
+          "max_queue_samples": 800,
+          "queue_age_max_ms": 17.628855,
+          "deadline_misses": 0,
+          "model_calls": 65,
+          "pipeline_finite_output_checks_passed": true,
+          "worker_cleanup_completed": true
+        }
+      }
+    },
+    "qnn_full_model_result": {
+      "accepted": false,
+      "full_unpaced_status": "SKIPPED_GROUPED_PREREQUISITE_FAILED",
+      "reason": "The encoder dense2 isolated numerical gate failed. A paced QNN mechanical pipeline still ran in this test build, but cannot establish an accepted model result. Its timings are deliberately omitted.",
+      "paced_pipeline_mechanically_ran": true,
+      "paced_qnn_timing_metrics_published": false,
+      "numerical_prerequisite_satisfied": false
+    },
+    "host_reference": {
+      "candidate_model_sha256": "1fdc23651daba8dd0bbacc74236cd5048df2ecfe2f70eccabf96e696e68bad88",
+      "host_waveform_vs_fp32": {
+        "max_abs": 0.01152309775352478,
+        "rmse": 0.0006099329124866345,
+        "reference_rms": 0.019679986003491697,
+        "normalized_rmse": 0.030992548083033086,
+        "snr_db": 30.17485432683835
+      },
+      "host_waveform_vs_single_conv": {
+        "max_abs": 0.008111521601676941,
+        "rmse": 0.0005779776395821432,
+        "reference_rms": 0.019589411450629344,
+        "normalized_rmse": 0.029504594410036486,
+        "snr_db": 30.602207021749443
+      },
+      "fp32_graft_control_waveform": {
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.019679986003491697,
+        "normalized_rmse": 0.0,
+        "snr_db": null
+      },
+      "all_21_states_checked": true,
+      "all_values_finite": true,
+      "candidate_input_clipping": {
+        "scope": "Actual candidate's pre-Conv activations during 65 CPU chronological calls, each with its own recurrent feedback; not perceptual quality.",
+        "calls": 65,
+        "significant_fraction_threshold": 0.001,
+        "cases": {
+          "reuse_encoder_dense1_conv_u8": {
+            "elements": 12205440,
+            "below_range": 0,
+            "above_range": 0,
+            "maximum_excess_quantized_codes": 0.0,
+            "clipped_fraction": 0.0,
+            "significant": false
+          },
+          "reuse_encoder_dense2_conv_u8": {
+            "elements": 26445120,
+            "below_range": 0,
+            "above_range": 0,
+            "maximum_excess_quantized_codes": 0.0,
+            "clipped_fraction": 0.0,
+            "significant": false
+          },
+          "reuse_encoder_dilated_conv_u8": {
+            "elements": 56958720,
+            "below_range": 0,
+            "above_range": 4,
+            "maximum_excess_quantized_codes": 1.0,
+            "clipped_fraction": 7.022629722016225e-08,
+            "significant": false
+          },
+          "reuse_mask_dense1_conv_u8": {
+            "elements": 6065280,
+            "below_range": 0,
+            "above_range": 0,
+            "maximum_excess_quantized_codes": 0.0,
+            "clipped_fraction": 0.0,
+            "significant": false
+          },
+          "reuse_mask_dense2_conv_u8": {
+            "elements": 13141440,
+            "below_range": 0,
+            "above_range": 0,
+            "maximum_excess_quantized_codes": 0.0,
+            "clipped_fraction": 0.0,
+            "significant": false
+          },
+          "reuse_mask_dense3_conv_u8": {
+            "elements": 28304640,
+            "below_range": 0,
+            "above_range": 0,
+            "maximum_excess_quantized_codes": 0.0,
+            "clipped_fraction": 0.0,
+            "significant": false
+          },
+          "reuse_phase_dense1_conv_u8": {
+            "elements": 6065280,
+            "below_range": 0,
+            "above_range": 1,
+            "maximum_excess_quantized_codes": 1.0,
+            "clipped_fraction": 1.6487285005803524e-07,
+            "significant": false
+          },
+          "reuse_phase_dense2_conv_u8": {
+            "elements": 13141440,
+            "below_range": 0,
+            "above_range": 4,
+            "maximum_excess_quantized_codes": 1.0,
+            "clipped_fraction": 3.0438064626098815e-07,
+            "significant": false
+          },
+          "reuse_phase_dense3_conv_u8": {
+            "elements": 28304640,
+            "below_range": 0,
+            "above_range": 4,
+            "maximum_excess_quantized_codes": 1.0,
+            "clipped_fraction": 1.413195857640302e-07,
+            "significant": false
+          }
+        }
+      },
+      "audio_quality_verified": false
+    }
+  },
+  "eight_conv": {
+    "quantized_convolutions": 8,
+    "excluded_original_fp32_node": "/dense_encoder/dense_block/dense_block.2.1/Conv",
+    "physical_status": "COMPLETE_ALL_EIGHT_ISOLATED_GATES_AND_FULL_HYBRID_EXECUTION_PASS",
+    "isolated_case_count": 8,
+    "remaining_isolated_models_and_limits_identical_to_passing_nine_conv_cases": true,
+    "host_reference": {
+      "candidate_model_sha256": "2820cc12668018ff3228020fe2b645aec726de768bcab25cbd91f37524b5f87f",
+      "host_waveform_vs_fp32": {
+        "max_abs": 0.012111842632293701,
+        "rmse": 0.0006544171937133273,
+        "reference_rms": 0.019679986003491697,
+        "normalized_rmse": 0.03325292983425995,
+        "snr_db": 29.563401681024544
+      },
+      "host_waveform_vs_single_conv": {
+        "max_abs": 0.01225069910287857,
+        "rmse": 0.0006366340655943373,
+        "reference_rms": 0.019589411450629344,
+        "normalized_rmse": 0.03249888681948555,
+        "snr_db": 29.762630292074476
+      },
+      "fp32_graft_control_waveform": {
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "reference_rms": 0.019679986003491697,
+        "normalized_rmse": 0.0,
+        "snr_db": null
+      },
+      "all_21_states_checked": true,
+      "all_values_finite": true,
+      "candidate_input_clipping": {
+        "scope": "Actual candidate's pre-Conv activations during 65 CPU chronological calls, each with its own recurrent feedback; not perceptual quality.",
+        "calls": 65,
+        "significant_fraction_threshold": 0.001,
+        "cases": {
+          "reuse_encoder_dense1_conv_u8": {
+            "elements": 12205440,
+            "below_range": 0,
+            "above_range": 0,
+            "maximum_excess_quantized_codes": 0.0,
+            "clipped_fraction": 0.0,
+            "significant": false
+          },
+          "reuse_encoder_dilated_conv_u8": {
+            "elements": 56958720,
+            "below_range": 0,
+            "above_range": 4,
+            "maximum_excess_quantized_codes": 1.0,
+            "clipped_fraction": 7.022629722016225e-08,
+            "significant": false
+          },
+          "reuse_mask_dense1_conv_u8": {
+            "elements": 6065280,
+            "below_range": 0,
+            "above_range": 0,
+            "maximum_excess_quantized_codes": 0.0,
+            "clipped_fraction": 0.0,
+            "significant": false
+          },
+          "reuse_mask_dense2_conv_u8": {
+            "elements": 13141440,
+            "below_range": 0,
+            "above_range": 0,
+            "maximum_excess_quantized_codes": 0.0,
+            "clipped_fraction": 0.0,
+            "significant": false
+          },
+          "reuse_mask_dense3_conv_u8": {
+            "elements": 28304640,
+            "below_range": 0,
+            "above_range": 0,
+            "maximum_excess_quantized_codes": 0.0,
+            "clipped_fraction": 0.0,
+            "significant": false
+          },
+          "reuse_phase_dense1_conv_u8": {
+            "elements": 6065280,
+            "below_range": 0,
+            "above_range": 1,
+            "maximum_excess_quantized_codes": 1.0,
+            "clipped_fraction": 1.6487285005803524e-07,
+            "significant": false
+          },
+          "reuse_phase_dense2_conv_u8": {
+            "elements": 13141440,
+            "below_range": 0,
+            "above_range": 2,
+            "maximum_excess_quantized_codes": 1.0,
+            "clipped_fraction": 1.5219032313049408e-07,
+            "significant": false
+          },
+          "reuse_phase_dense3_conv_u8": {
+            "elements": 28304640,
+            "below_range": 0,
+            "above_range": 0,
+            "maximum_excess_quantized_codes": 0.0,
+            "clipped_fraction": 0.0,
+            "significant": false
+          }
+        }
+      },
+      "audio_quality_verified": false
+    },
+    "physical_results": {
+      "benchmark_app_version": "0.4.0-qnn-hybrid-preview1",
+      "status": "ALL_EIGHT_NUMERICAL_PREREQUISITES_AND_COMPLETE_HYBRID_EXECUTION_VERIFIED",
+      "foreground_conditions": {
+        "screen_interactive_at_start": true,
+        "device_idle_at_start": false,
+        "power_save_at_start": false,
+        "keyguard_locked_at_start": false,
+        "foreground_timing_qualified": true
+      },
+      "isolated_qnn_cases": [
+        {
+          "case": "reuse_encoder_dense1_conv_u8",
+          "model_sha256": "d68d1b4deaad68358ee5b3bb4115a406c41b83bc214bf256d766fa1c19c5a09b",
+          "numerical_passed": true,
+          "provider_execution_verified": true,
+          "maximum_absolute_error": 0.5705184936523438,
+          "predeclared_absolute_tolerance": 0.5990444183349609,
+          "outside_tolerance_elements": 0,
+          "tolerance_relaxed": false,
+          "independently_read_provider_kernel_events": {
+            "QNNExecutionProvider": 25
+          }
+        },
+        {
+          "case": "reuse_encoder_dilated_conv_u8",
+          "model_sha256": "7b3bca87e4e78674cbd8fb37724dae7977b79ba18e6a220e8a3399e0f948d713",
+          "numerical_passed": true,
+          "provider_execution_verified": true,
+          "maximum_absolute_error": 0.47991371154785156,
+          "predeclared_absolute_tolerance": 1.0078135371208192,
+          "outside_tolerance_elements": 0,
+          "tolerance_relaxed": false,
+          "independently_read_provider_kernel_events": {
+            "QNNExecutionProvider": 25
+          }
+        },
+        {
+          "case": "reuse_mask_dense1_conv_u8",
+          "model_sha256": "73604a67acd3d0f571c25622c1d519b53c35432af05ad96be586d978f33eedf5",
+          "numerical_passed": true,
+          "provider_execution_verified": true,
+          "maximum_absolute_error": 0.4778251647949219,
+          "predeclared_absolute_tolerance": 1.0034261494874954,
+          "outside_tolerance_elements": 0,
+          "tolerance_relaxed": false,
+          "independently_read_provider_kernel_events": {
+            "QNNExecutionProvider": 25
+          }
+        },
+        {
+          "case": "reuse_mask_dense2_conv_u8",
+          "model_sha256": "5f84073528e41495e1a0b336a3831700da761154b958fe413ff552d1a7b84e13",
+          "numerical_passed": true,
+          "provider_execution_verified": true,
+          "maximum_absolute_error": 0.9764499664306641,
+          "predeclared_absolute_tolerance": 1.0252721518278123,
+          "outside_tolerance_elements": 0,
+          "tolerance_relaxed": false,
+          "independently_read_provider_kernel_events": {
+            "QNNExecutionProvider": 25
+          }
+        },
+        {
+          "case": "reuse_mask_dense3_conv_u8",
+          "model_sha256": "7aeea26b91a99c27ae0de991d8c5ce649fc8fa1a66cfb5da61816b44f2e226fc",
+          "numerical_passed": true,
+          "provider_execution_verified": true,
+          "maximum_absolute_error": 0.6247978210449219,
+          "predeclared_absolute_tolerance": 1.3120697915554047,
+          "outside_tolerance_elements": 0,
+          "tolerance_relaxed": false,
+          "independently_read_provider_kernel_events": {
+            "QNNExecutionProvider": 25
+          }
+        },
+        {
+          "case": "reuse_phase_dense1_conv_u8",
+          "model_sha256": "052fd1b18c8bc22ebefa7c06e3ba76ebf23e79dd4017006f653deab3185f42f7",
+          "numerical_passed": true,
+          "provider_execution_verified": true,
+          "maximum_absolute_error": 0.40018463134765625,
+          "predeclared_absolute_tolerance": 0.8403854101896286,
+          "outside_tolerance_elements": 0,
+          "tolerance_relaxed": false,
+          "independently_read_provider_kernel_events": {
+            "QNNExecutionProvider": 25
+          }
+        },
+        {
+          "case": "reuse_phase_dense2_conv_u8",
+          "model_sha256": "c74a20fe70104b3659102137cec026978a4e2c23fd6cab92e58dece341dd6aca",
+          "numerical_passed": true,
+          "provider_execution_verified": true,
+          "maximum_absolute_error": 1.3826675415039062,
+          "predeclared_absolute_tolerance": 1.4517995417118073,
+          "outside_tolerance_elements": 0,
+          "tolerance_relaxed": false,
+          "independently_read_provider_kernel_events": {
+            "QNNExecutionProvider": 25
+          }
+        },
+        {
+          "case": "reuse_phase_dense3_conv_u8",
+          "model_sha256": "7b9a55799cd02bfe99216d864496c66af5537d22e3dbf12b73be2f0719483162",
+          "numerical_passed": true,
+          "provider_execution_verified": true,
+          "maximum_absolute_error": 1.0334320068359375,
+          "predeclared_absolute_tolerance": 2.1702017068862918,
+          "outside_tolerance_elements": 0,
+          "tolerance_relaxed": false,
+          "independently_read_provider_kernel_events": {
+            "QNNExecutionProvider": 25
+          }
+        }
+      ],
+      "isolated_verified_count": 8,
+      "full_8k_unpaced": {
+        "scope": "Sum of complete unprofiled enhancer.process calls plus flush, including Java STFT/synthesis and synchronous inference; excludes compilation, profiled zero warm-up, profile verification, checkpoints, comparisons and file writes. Offline unpaced processing, not live playout.",
+        "profiling_in_timed_calls": false,
+        "audio_calls": 65,
+        "flush_calls": 1,
+        "warmup_calls": 3,
+        "backends": {
+          "cpu_fp32": {
+            "model_sha256": "f950dcfb9321191b2bcb3ab9afa3e100c40e5c64dd1de1d30849be4c1aacce32",
+            "execution_verified": true,
+            "mean_call_wall_ms": 66.1538180923077,
+            "p95_call_wall_ms": 69.1925,
+            "max_call_wall_ms": 69.654896,
+            "calls_over_100ms": 0,
+            "offline_processing_rtf": 0.6735810344135803,
+            "completed_audio_calls": 65,
+            "source_input_samples": 51840,
+            "trimmed_output_samples": 51840,
+            "all_output_samples_finite": true,
+            "warmup_profile": {
+              "scope": "Three zero-input warm-ups only; timed audio and flush are unprofiled",
+              "independently_read": true,
+              "model_run_events": 3,
+              "provider_kernel_events": {
+                "CPUExecutionProvider": 1434
+              },
+              "unique_qnn_partitions": 0
+            }
+          },
+          "cpu_qdq": {
+            "model_sha256": "2820cc12668018ff3228020fe2b645aec726de768bcab25cbd91f37524b5f87f",
+            "execution_verified": true,
+            "mean_call_wall_ms": 53.816652184615386,
+            "p95_call_wall_ms": 55.693958,
+            "max_call_wall_ms": 57.711042,
+            "calls_over_100ms": 0,
+            "offline_processing_rtf": 0.5483210995370371,
+            "completed_audio_calls": 65,
+            "source_input_samples": 51840,
+            "trimmed_output_samples": 51840,
+            "all_output_samples_finite": true,
+            "warmup_profile": {
+              "scope": "Three zero-input warm-ups only; timed audio and flush are unprofiled",
+              "independently_read": true,
+              "model_run_events": 3,
+              "provider_kernel_events": {
+                "CPUExecutionProvider": 1482
+              },
+              "unique_qnn_partitions": 0
+            }
+          },
+          "qnn_htp": {
+            "model_sha256": "2820cc12668018ff3228020fe2b645aec726de768bcab25cbd91f37524b5f87f",
+            "execution_verified": true,
+            "mean_call_wall_ms": 57.60583178461539,
+            "p95_call_wall_ms": 62.526094,
+            "max_call_wall_ms": 87.017708,
+            "calls_over_100ms": 0,
+            "offline_processing_rtf": 0.5864668055555556,
+            "completed_audio_calls": 65,
+            "source_input_samples": 51840,
+            "trimmed_output_samples": 51840,
+            "all_output_samples_finite": true,
+            "warmup_profile": {
+              "scope": "Three zero-input warm-ups only; timed audio and flush are unprofiled",
+              "independently_read": true,
+              "model_run_events": 3,
+              "provider_kernel_events": {
+                "QNNExecutionProvider": 48,
+                "CPUExecutionProvider": 1029
+              },
+              "unique_qnn_partitions": 16
+            }
+          }
+        },
+        "hybrid_execution_verified": true,
+        "provider_evidence_scope": "Finite complete causal sequence in the same static session whose three zero-input warm-up calls show QNN HTP and CPU provider events. Timed calls and flush are unprofiled; no per-timed-call provider trace, compute-share or speed-gain claim follows from warm-up evidence."
+      },
+      "paced_16k_58_32_seconds": {
+        "scope": "Deterministically interpolated public clip through actual 16\u21928\u219216 kHz FIR, bounded queue, model and recording lifecycle. No microphone/source-capture or speaker-playout measurement. QNN profile evidence is startup warm-up only.",
+        "repetitions": 9,
+        "repetition_scope": "Base PCM bytes are concatenated without resetting FIR or model state between repetitions; waveform seams are part of this public test signal",
+        "input_seconds": 58.32,
+        "input_samples": 933120,
+        "expected_output_samples_with_fir_tail": 933308,
+        "fir_tail_samples": 188,
+        "model_process_calls_per_backend": 584,
+        "packet_samples": 800,
+        "packet_period_ms": 50,
+        "submitted_packets_per_backend": 1167,
+        "public_input_16k_pcm_sha256": "8b124aec90e5d3b87af9e7048432281d18c8018673880e65f7f82581a6d59b54",
+        "base_public_input_16k_pcm_sha256": "43941e2d196e71dd26934bd04730927c21042164275048dd6008430ba93430fc",
+        "qnn_numerical_prerequisites_passed": true,
+        "backends": {
+          "cpu_fp32": {
+            "model_sha256": "f950dcfb9321191b2bcb3ab9afa3e100c40e5c64dd1de1d30849be4c1aacce32",
+            "pipeline_verified": true,
+            "process_mean_ms": 70.79184864212328,
+            "process_p95_ms": 78.157344,
+            "process_max_ms": 90.569375,
+            "processing_rtf": 0.7176510377914952,
+            "submitted_packets": 1167,
+            "submitted_input_samples": 933120,
+            "input_samples": 933120,
+            "processed_input_samples": 933120,
+            "output_samples": 933308,
+            "dropped_input_samples": 0,
+            "queue_overflows": 0,
+            "queued_input_samples": 0,
+            "max_queue_samples": 800,
+            "queue_age_max_ms": 60.171146,
+            "deadline_misses": 0,
+            "model_calls": 584,
+            "pipeline_finite_output_checks_passed": true,
+            "worker_cleanup_completed": true,
+            "sequence_gaps": 0,
+            "qnn_startup_warmup_reported_verified": false
+          },
+          "cpu_qdq": {
+            "model_sha256": "2820cc12668018ff3228020fe2b645aec726de768bcab25cbd91f37524b5f87f",
+            "pipeline_verified": true,
+            "process_mean_ms": 64.51712655650685,
+            "process_p95_ms": 74.473021,
+            "process_max_ms": 91.764167,
+            "processing_rtf": 0.654150237191358,
+            "submitted_packets": 1167,
+            "submitted_input_samples": 933120,
+            "input_samples": 933120,
+            "processed_input_samples": 933120,
+            "output_samples": 933308,
+            "dropped_input_samples": 0,
+            "queue_overflows": 0,
+            "queued_input_samples": 0,
+            "max_queue_samples": 800,
+            "queue_age_max_ms": 43.701667,
+            "deadline_misses": 0,
+            "model_calls": 584,
+            "pipeline_finite_output_checks_passed": true,
+            "worker_cleanup_completed": true,
+            "sequence_gaps": 0,
+            "qnn_startup_warmup_reported_verified": false
+          },
+          "qnn_htp": {
+            "model_sha256": "2820cc12668018ff3228020fe2b645aec726de768bcab25cbd91f37524b5f87f",
+            "pipeline_verified": true,
+            "process_mean_ms": 72.63449082020549,
+            "process_p95_ms": 80.829375,
+            "process_max_ms": 89.667187,
+            "processing_rtf": 0.7352686013374485,
+            "submitted_packets": 1167,
+            "submitted_input_samples": 933120,
+            "input_samples": 933120,
+            "processed_input_samples": 933120,
+            "output_samples": 933308,
+            "dropped_input_samples": 0,
+            "queue_overflows": 0,
+            "queued_input_samples": 0,
+            "max_queue_samples": 800,
+            "queue_age_max_ms": 42.535104,
+            "deadline_misses": 0,
+            "model_calls": 584,
+            "pipeline_finite_output_checks_passed": true,
+            "worker_cleanup_completed": true,
+            "sequence_gaps": 0,
+            "qnn_startup_warmup_reported_verified": true
+          }
+        },
+        "timed_provider_trace_collected": false,
+        "audio_quality_accepted": false
+      },
+      "performance_summary": {
+        "cpu_quantized_mean_call_reduction_fraction_short_unpaced": 0.18649212189805364,
+        "cpu_quantized_mean_call_reduction_fraction_58_32s_paced": 0.08863622303942464,
+        "cpu_quantized_fastest_in_both_tests": true,
+        "qnn_faster_than_fp32_cpu_in_short_unpaced_test": true,
+        "qnn_faster_than_fp32_cpu_in_58_32s_paced_test": false,
+        "qnn_faster_than_quantized_cpu_in_either_test": false,
+        "npu_speed_benefit_claimed": false,
+        "scope": "Observed sequential same-device processing wall-time means, not controlled CPU-cycle or thermal measurements."
+      },
+      "waveform_numerical_comparisons_short_public_clip": {
+        "cpu_qdq_vs_cpu_fp32": {
+          "samples": 51840,
+          "rmse": 0.0006230018921690335,
+          "max_abs": 0.010558351874351501,
+          "mean_abs": 0.000258018779655722,
+          "reference_rms": 0.019679995023057253,
+          "normalized_rmse": 0.03165660821758944,
+          "snr_db": 29.990712371465943,
+          "audio_quality_verified": false
+        },
+        "qnn_htp_vs_cpu_qdq": {
+          "samples": 51840,
+          "rmse": 0.00045523872070827226,
+          "max_abs": 0.007021069526672363,
+          "mean_abs": 0.0001845114944701469,
+          "reference_rms": 0.01975834764618221,
+          "normalized_rmse": 0.023040323455197194,
+          "snr_db": 32.750228565895576,
+          "audio_quality_verified": false
+        },
+        "scope": "Reference waveform errors for one public clip; no perceptual or speech-quality acceptance gate"
+      },
+      "audio_quality_accepted": false,
+      "microphone_recorded": false,
+      "speaker_playout_verified": false,
+      "general_realtime_guarantee": false
+    }
+  },
+  "limits": {
+    "one_public_calibration_and_test_clip": true,
+    "sequential_backend_order": true,
+    "thermal_and_clock_conditions_controlled": false,
+    "microphone_recorded": false,
+    "speaker_playout_underruns_measured": false,
+    "audio_quality_accepted": false,
+    "general_realtime_guarantee": false,
+    "npu_compute_share_measured": false
+  },
+  "privacy": "Serials, device-private paths, runtime partition identifiers, capture identifiers and exact timestamps are omitted.",
+  "release": {
+    "tag": "v0.4.0-qnn-mic-preview1",
+    "url": "https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.4.0-qnn-mic-preview1",
+    "model_variant": "eight_conv",
+    "candidate_model_sha256": "2820cc12668018ff3228020fe2b645aec726de768bcab25cbd91f37524b5f87f",
+    "phone_application_id": "io.github.reuse.phone.qnn",
+    "phone_version": "0.4.0-qnn-mic-preview1",
+    "phone_default_processing_mode": "CPU original FP32",
+    "selectable_processing_modes": [
+      "CPU original FP32",
+      "CPU quantized convolutions",
+      "QNN HTP plus CPU quantized convolutions"
+    ]
+  }
+}

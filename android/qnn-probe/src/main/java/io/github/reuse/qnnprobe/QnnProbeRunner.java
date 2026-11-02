@@ -75,6 +75,16 @@ final class QnnProbeRunner {
             put(report, "timestamp_utc", utcTimestamp());
             put(report, "microphone_started", false);
             put(report, "audio_captured", false);
+            android.os.PowerManager power = context.getSystemService(android.os.PowerManager.class);
+            android.app.KeyguardManager keyguard = context.getSystemService(android.app.KeyguardManager.class);
+            if (power != null) {
+                put(report, "screen_interactive_at_start", power.isInteractive());
+                put(report, "device_idle_at_start", power.isDeviceIdleMode());
+                put(report, "power_save_at_start", power.isPowerSaveMode());
+                put(report, "keyguard_locked_at_start", keyguard == null || keyguard.isKeyguardLocked());
+                put(report, "foreground_timing_qualified", power.isInteractive() && !power.isDeviceIdleMode()
+                        && keyguard != null && !keyguard.isKeyguardLocked());
+            }
             put(report, "full_reuse_acceleration_verified", false);
             put(report, "audio_quality_verified", false);
             put(report, "qnn_htp_test_verified", false);
@@ -108,7 +118,7 @@ final class QnnProbeRunner {
             JSONObject manifest = new JSONObject(new String(asset("manifest.json"), StandardCharsets.UTF_8));
             if (manifest.getInt("schema_version") != 2) throw new IOException("Unsupported probe fixture manifest schema");
             JSONArray cases = manifest.getJSONArray("cases");
-            if (cases.length() == 0 || cases.length() > 8) throw new IOException("Invalid number of probe fixtures");
+            if (cases.length() == 0 || cases.length() > 16) throw new IOException("Invalid number of probe fixtures");
             put(report, "fixture_manifest", manifest);
             JSONArray outcomes = new JSONArray();
             put(report, "cases", outcomes);
@@ -337,6 +347,7 @@ final class QnnProbeRunner {
                 providerOptions.put("backend_path", backend.toString());
                 providerOptions.put("htp_performance_mode", "balanced");
                 providerOptions.put("offload_graph_io_quantization", "0");
+                providerOptions.put("enable_htp_fp16_precision", "0");
                 put(result, "qnn_provider_options", new JSONObject(providerOptions));
             }
             Path profilePrefix = directory.resolve(prefix + "-ort");

@@ -28,3 +28,7 @@ project(':reuse-audio').projectDir = file('android/reuse-audio')
 project(':phone-demo').projectDir = file('android/phone-demo')
 include ':qnn-probe'
 project(':qnn-probe').projectDir = file('android/qnn-probe')
+include ':reuse-qnn'
+project(':reuse-qnn').projectDir = file('android/reuse-qnn')
+include ':reuse-audio-qnn'
+project(':reuse-audio-qnn').projectDir = file('android/reuse-audio-qnn')

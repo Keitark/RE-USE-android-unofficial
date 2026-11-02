@@ -1,0 +1,61 @@
+plugins {
+    id 'com.android.library'
+    id 'maven-publish'
+}
+
+group = 'io.github.reuse'
+version = '0.1.0-SNAPSHOT'
+
+def noticesSource = rootProject.file('docs/licenses/qnn')
+def generatedAssets = layout.buildDirectory.dir('generated/qnnAudioNotices')
+def copyNotices = tasks.register('copyQnnAudioNotices', Sync) {
+    inputs.dir(noticesSource)
+    into(generatedAssets)
+    from(noticesSource) { into 'reuse-audio-qnn-notices' }
+}
+
+android {
+    namespace 'io.github.reuse.audio.qnn'
+    compileSdk 35
+    defaultConfig {
+        minSdk 29
+        ndk { abiFilters 'arm64-v8a' }
+    }
+    sourceSets { main { assets.srcDir generatedAssets } }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    publishing { singleVariant('release') { withSourcesJar() } }
+}
+
+tasks.named('preBuild').configure { dependsOn(copyNotices) }
+
+dependencies {
+    api project(':reuse-audio')
+    api project(':reuse-qnn')
+    testImplementation 'junit:junit:4.13.2'
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                from components.release
+                artifactId = 'reuse-audio-qnn'
+                pom {
+                    name = 'RE-USE QNN PCM sessions'
+                    description = 'Optional MIT Java adapter for bounded PCM sessions using the QNN HTP backend. Qualcomm runtime and NVIDIA model-specific dependencies retain their original licenses; model weights and vendor native binaries are not shaded into this AAR.'
+                    licenses {
+                        license {
+                            name = 'MIT (adapter Java source only)'
+                            url = 'https://opensource.org/license/mit/'
+                            distribution = 'repo'
+                        }
+                    }
+                }
+            }
+        }
+        repositories { maven { url = uri(rootProject.layout.buildDirectory.dir('repository')) } }
+    }
+}

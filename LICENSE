@@ -22,6 +22,9 @@ SOFTWARE.
 
 Exceptions: tools/reuse_port.py, tools/reuse_chunk.py, tools/export_model.py,
 tools/prepare_qnn_probe.py,
+tools/prepare_qnn_encoder.py,
+tools/prepare_qnn_conv_hybrid.py,
+tools/prepare_qnn_multiconv.py,
 tools/optimize_*.py, and the model-specific
 native/selective_scan.cpp, native/selective_sequence.hpp, native/channel_norm.hpp,
 native/temporal_conv.hpp, native/frequency_conv.hpp, native/even/, native/live/,

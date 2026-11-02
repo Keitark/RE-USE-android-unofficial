@@ -66,6 +66,12 @@ public final class QnnProbeActivity extends Activity {
         displayed = completed != null ? completed : restoreLatest();
         if (displayed != null) showResult(displayed);
         refreshUi();
+        // Fixed public-fixture benchmark only; never opens a microphone.
+        // Used by the package-scoped ADB development runner.
+        if (saved == null && getIntent().getBooleanExtra("run_tests", false)) {
+            getIntent().removeExtra("run_tests");
+            main.post(this::startProbe);
+        }
     }
 
     private void buildUi() {
@@ -77,9 +83,9 @@ public final class QnnProbeActivity extends Activity {
         page.setPadding(dp(24), dp(24), dp(24), dp(24));
         scroll.addView(page);
         add(page, text("RE-USE · UNOFFICIAL", 14, MINT, true), 0);
-        add(page, text("CPU / NPU Comparison", 30, INK, true), 12);
-        add(page, text("Compare isolated RE-USE projection and convolution graphs on CPU FP32, CPU quantized, and Qualcomm Hexagon NPU.", 16, MUTED, false), 12);
-        add(page, text("Layer benchmarks only · no microphone or audio recording", 14, MINT, true), 12);
+        add(page, text("Hybrid Streaming Test", 30, INK, true), 12);
+        add(page, text("Verify convolution graphs on the NPU, then compare complete RE-USE processing on the public test clip.", 16, MUTED, false), 12);
+        add(page, text("Public test audio only · no microphone recording", 14, MINT, true), 12);
 
         LinearLayout card = column();
         card.setPadding(dp(20), dp(20), dp(20), dp(20));
@@ -90,10 +96,10 @@ public final class QnnProbeActivity extends Activity {
         add(page, card, 22);
         status = text("Ready to test", 23, INK, true);
         add(card, status, 0);
-        detail = text("Each backend gets five warm-up calls and 20 timed calls. Initialization and compilation are reported separately.", 15, MUTED, false);
+        detail = text("The isolated prerequisite runs first. The full-model test then uses separate CPU and hybrid sessions with chronological recurrent states.", 15, MUTED, false);
         detail.setTextIsSelectable(true);
         add(card, detail, 10);
-        run = button("Run CPU / NPU tests", true);
+        run = button("Run convolution + streaming tests", true);
         run.setOnClickListener(view -> startProbe());
         add(card, run, 18);
         results = text("", 14, MUTED, false);
@@ -109,8 +115,8 @@ public final class QnnProbeActivity extends Activity {
         licenses.setOnClickListener(view -> showLicensePicker());
         add(card, licenses, 9);
 
-        add(page, text("CPU uses two threads; QNN uses balanced HTP mode. Tests run CPU FP32 → CPU quantized → NPU for each graph. Order and thermal conditions are not controlled.", 13, MUTED, false), 20);
-        add(page, text("Results require correct outputs and verified execution-provider events. Layer ratios do not establish full-model speed, microphone latency, or audio quality.", 13, MUTED, false), 12);
+        add(page, text("CPU uses two threads. The hybrid model uses QNN for the encoder candidate and CPU for the remaining work. Order and thermal conditions are not controlled.", 13, MUTED, false), 20);
+        add(page, text("Full-model timing includes analysis and synthesis. Offline processing speed does not establish microphone latency, continuous playout or audio quality.", 13, MUTED, false), 12);
         add(page, text("Uses NVIDIA model-derived weights for noncommercial research. Not affiliated with or endorsed by NVIDIA or Qualcomm.", 12, MUTED, false), 16);
         setContentView(scroll);
     }
@@ -119,9 +125,42 @@ public final class QnnProbeActivity extends Activity {
         if (!RUNNING.compareAndSet(false, true)) return;
         completed = null;
         progress = "Preparing test fixtures…";
+        boolean groupOnly = getIntent().getBooleanExtra("group_only", false);
+        getIntent().removeExtra("group_only");
+        boolean pcmTests = getIntent().getBooleanExtra("run_pcm_tests", false);
+        getIntent().removeExtra("run_pcm_tests");
+        int repetitions = getIntent().getIntExtra("pcm_repetitions", 1);
+        getIntent().removeExtra("pcm_repetitions");
         QnnProbeRunner runner = new QnnProbeRunner(getApplicationContext());
         WORKER.execute(() -> {
-            try { completed = runner.run(message -> progress = message); }
+            try {
+                QnnProbeRunner.Result grouped = runner.run(message -> progress = message);
+                QnnProbeRunner.Result result = groupOnly ? grouped : new FullStreamingBenchmark(getApplicationContext()).run(grouped,
+                        message -> progress = message);
+                if (pcmTests && !groupOnly) {
+                    try {
+                        JSONObject full = result.diagnostics.optJSONObject("full_stream_benchmark");
+                        boolean qnnVerified = full != null && full.optBoolean("hybrid_execution_verified", false);
+                        result.diagnostics.put("public_pcm_benchmark", PublicPcmBenchmark.runAll(
+                                getApplicationContext(), result.directory, message -> progress = message,
+                                qnnVerified, repetitions));
+                        byte[] data = (result.diagnostics.toString(2) + "\n").getBytes(StandardCharsets.UTF_8);
+                        for (String name : new String[]{"stats.json", "phone-capture.json", "qnn-probe.json"}) {
+                            java.nio.file.Path target = result.directory.toPath().resolve(name);
+                            java.nio.file.Path temporary = target.resolveSibling(name + ".tmp");
+                            Files.write(temporary, data);
+                            try { Files.move(temporary, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                                    java.nio.file.StandardCopyOption.ATOMIC_MOVE); }
+                            catch (java.nio.file.AtomicMoveNotSupportedException error) {
+                                Files.move(temporary, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                            }
+                        }
+                    } catch (Exception error) {
+                        progress = "PCM benchmark error: " + error;
+                    }
+                }
+                completed = result;
+            }
             finally { RUNNING.set(false); }
         });
         refreshUi();
@@ -131,12 +170,14 @@ public final class QnnProbeActivity extends Activity {
         boolean running = RUNNING.get();
         run.setEnabled(!running);
         if (running) {
-            status.setText("Comparing CPU / NPU…");
+            status.setText("Testing hybrid processing…");
             detail.setText(progress);
             results.setText("No microphone is open. Last-stage diagnostics are saved before native execution.");
             if (visible) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         } else {
-            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            if (visible && getIntent().getBooleanExtra("keep_screen_on", false))
+                getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             if (completed != null && completed != displayed) {
                 displayed = completed;
                 showResult(displayed);
@@ -156,6 +197,7 @@ public final class QnnProbeActivity extends Activity {
         boolean ready = !interrupted && (comparison
                 ? report.optBoolean("comparison_all_verified", false) : report.optBoolean("qnn_htp_test_verified", false));
         boolean anyHtp = report.optBoolean("any_htp_graph_verified", report.optBoolean("qnn_htp_test_verified", false));
+        JSONObject full = report.optJSONObject("full_stream_benchmark");
         status.setText(interrupted ? "Previous test interrupted" : ready ? "Comparison ready" : "Partial test results");
         if (interrupted) {
             detail.setText("Stopped during " + report.optString("last_stage", "an unknown stage")
@@ -202,7 +244,53 @@ public final class QnnProbeActivity extends Activity {
                 .append(shortError(qnnInitialization.optString("error")));
         if (report.has("error")) lines.append("\n\n").append(shortError(report.optString("error")));
         if (report.has("diagnostics_write_error")) lines.append("\n\nCould not save all diagnostic files. Copy diagnostics to retain the error.");
+        if (full != null) {
+            if (!interrupted) {
+                status.setText(full.optBoolean("complete", false) ? "Streaming results ready" : "Streaming results incomplete");
+                detail.setText("Public-clip results only. Provider execution, processing time and waveform differences are reported separately.");
+            }
+            lines.append("\n\nFull streaming model · public clip");
+            JSONObject backends = full.optJSONObject("backends");
+            if (backends != null) {
+                appendFullBackend(lines, "CPU FP32", backends.optJSONObject("cpu_fp32"));
+                appendFullBackend(lines, "CPU quantized convolutions", backends.optJSONObject("cpu_qdq"));
+                appendFullBackend(lines, "Hybrid QNN + CPU", backends.optJSONObject("qnn_htp"));
+            }
+            if (full.has("error")) lines.append("\n").append(shortError(full.optString("error")));
+            lines.append("\n\nWaveform comparisons and full error details are in Share diagnostics.");
+        }
+        if (report.has("foreground_timing_qualified")
+                && !report.optBoolean("foreground_timing_qualified", false))
+            lines.append("\n\nStarted with the screen off or device idle. Timing requires a foreground rerun.");
+        JSONObject pcm = report.optJSONObject("public_pcm_benchmark");
+        if (pcm != null) {
+            lines.append("\n\nPaced 16 kHz PCM pipeline: ").append(pcm.optString("status", "see diagnostics"))
+                    .append("\nPublic fixture only; no microphone or speaker playout.");
+            JSONObject modes = pcm.optJSONObject("backends");
+            if (modes != null) for (String key : new String[]{"cpu_fp32", "cpu_qdq", "qnn_htp"}) {
+                JSONObject mode = modes.optJSONObject(key);
+                if (mode == null) continue;
+                lines.append("\n\n").append(key).append(": ").append(mode.optString("status"));
+                if (mode.has("processing_rtf")) lines.append(String.format(Locale.US,
+                        "\nRTF %.3f · %d drops · %d calls over 100 ms", mode.optDouble("processing_rtf"),
+                        mode.optLong("dropped_input_samples"), mode.optLong("deadline_misses")));
+            }
+        }
         results.setText(lines.toString());
+    }
+
+    private static void appendFullBackend(StringBuilder text, String label, JSONObject backend) {
+        text.append("\n\n").append(label).append(": ");
+        if (backend == null) { text.append("pending"); return; }
+        text.append(backend.optString("status", "pending"));
+        if (backend.has("mean_call_wall_ms")) text.append(String.format(Locale.US,
+                "\nMean %.2f ms · p95 %.2f ms · max %.2f ms",
+                backend.optDouble("mean_call_wall_ms"), backend.optDouble("p95_call_wall_ms"),
+                backend.optDouble("max_call_wall_ms")));
+        if (backend.has("offline_processing_rtf")) text.append(String.format(Locale.US,
+                "\nOffline processing RTF %.3f · calls over 100 ms: %d",
+                backend.optDouble("offline_processing_rtf"), backend.optInt("calls_over_100ms")));
+        if (backend.has("error")) text.append("\n").append(shortError(backend.optString("error")));
     }
 
     private static void appendBackend(StringBuilder text, String label, JSONObject backend) {

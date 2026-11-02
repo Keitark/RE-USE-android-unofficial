@@ -5,6 +5,10 @@ microphone, processes the input through RE-USE while it arrives, and saves a
 before/after WAV pair. Its package is `io.github.reuse.phone`. No Even app,
 G2 glasses, Bluetooth connection, login, or cloud audio service is required.
 
+An experimental, separately packaged [QNN/CPU comparison demo](qnn-hybrid.md)
+adds original FP32 CPU, partially quantized CPU, and hybrid NPU + CPU choices.
+The stable APK described below retains its original CPU backend.
+
 ## Install and run
 
 Download `reuse-phone-demo.apk` from the

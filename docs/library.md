@@ -7,6 +7,8 @@ UI. Both the phone demo and optional G2 companion consume the same libraries.
 |---|---|---|
 | `:reuse` | Model loading, recurrent state, STFT, chunked enhancement, and native custom operations | None |
 | `:reuse-audio` | Bounded 16 kHz PCM session, resampling, complete stop/drain, WAV pair, and timing statistics | Depends on `:reuse`, not either demo |
+| `:reuse-qnn` | Optional QNN HTP backend, registration lifecycle and provider evidence | Depends on `:reuse`; opts into ORT 1.29 / QNN dependencies |
+| `:reuse-audio-qnn` | Optional QNN engine for the ordinary PCM session | Depends on `:reuse-audio` and `:reuse-qnn` |
 | `:phone-demo` | `AudioRecord`, permission, UI, playback, and user-initiated sharing | Consumes `:reuse-audio` |
 | `:live-companion` | Local HTTP/WebSocket transport for the optional G2 Hub route | Consumes `:reuse-audio` |
 
@@ -14,6 +16,30 @@ The `io.github.reuse.live` Java package name is retained for the shared session
 and resampler's JNI/API compatibility. It does not imply a dependency on the
 G2 application. Neither library opens the microphone, requests permission,
 connects to a server, or requires an Even app installation.
+
+For experimental Qualcomm NPU use, see the [QNN hybrid guide](qnn-hybrid.md),
+[backend API](../android/reuse-qnn/README.md), and
+[PCM adapter API](../android/reuse-audio-qnn/README.md). Optional adapters leave
+the default CPU application's runtime dependency unchanged. Raw copied AARs
+require their declared dependencies; the vendor runtime is resolved from Maven,
+not bundled inside the adapter AARs. Model weights are supplied separately.
+
+The experimental release's library ZIP includes all four AARs, source JARs,
+and POMs. For manually copied QNN AARs, declare the runtime dependencies too:
+
+```kotlin
+dependencies {
+    implementation(files("libs/reuse-release.aar", "libs/reuse-audio-release.aar",
+        "libs/reuse-qnn-release.aar", "libs/reuse-audio-qnn-release.aar"))
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.29.0")
+    implementation("com.qualcomm.qti:onnxruntime-android-qnn:2.7.0")
+    implementation("com.qualcomm.qti:qnn-runtime:2.51.0")
+}
+```
+
+Use the adapter guides' native extraction settings and preserve component
+notices. The QNN adapters target compatible ARM64 Qualcomm devices on API 29+.
+The default CPU-only dependency example below continues to use ORT 1.23.2.
 
 ## Build and consume
 

@@ -105,10 +105,21 @@ public final class ChunkedReuseEnhancer implements AutoCloseable {
      */
     public static ChunkedReuseEnhancer create(Context context, Path modelPath, Path manifestPath, ReuseConfig config)
             throws IOException, OrtException {
+        return create(context, modelPath, manifestPath, config, null);
+    }
+
+    /**
+     * Creates an enhancer with an optional externally packaged backend. Keep the configurer's
+     * runtime resources alive until this enhancer closes. Use a CPU {@link ReuseConfig};
+     * external configuration cannot be combined with the built-in NNAPI backend.
+     */
+    public static ChunkedReuseEnhancer create(Context context, Path modelPath, Path manifestPath,
+                                             ReuseConfig config, SessionOptionsConfigurer configurer)
+            throws IOException, OrtException {
         if (context == null) throw new IllegalArgumentException("context is required");
         Path library = new java.io.File(context.getApplicationInfo().nativeLibraryDir,
                 "libreuse_ort_ops.so").toPath();
-        return new ChunkedReuseEnhancer(modelPath, manifestPath, config, library);
+        return new ChunkedReuseEnhancer(modelPath, manifestPath, config, library, configurer);
     }
 
     /**
@@ -118,7 +129,19 @@ public final class ChunkedReuseEnhancer implements AutoCloseable {
      */
     public ChunkedReuseEnhancer(Path modelPath, Path manifestPath, ReuseConfig config, Path customOpLibrary)
             throws IOException, OrtException {
+        this(modelPath, manifestPath, config, customOpLibrary, null);
+    }
+
+    /**
+     * Supplies a separately packaged session backend without changing the core runtime dependency.
+     * External configuration requires {@code config.backend == CPU}; the configurer chooses its
+     * own provider and verification policy. The caller closes its backend after closing the enhancer.
+     */
+    public ChunkedReuseEnhancer(Path modelPath, Path manifestPath, ReuseConfig config,
+                                Path customOpLibrary, SessionOptionsConfigurer configurer)
+            throws IOException, OrtException {
         if (config == null) throw new IllegalArgumentException("config is required");
+        validateExternalConfigurer(config, configurer);
         this.config = config;
         this.dsp = new ChunkedStreamingStft(config);
         ModelManifest manifest = ModelManifest.read(manifestPath, modelPath, config);
@@ -143,6 +166,14 @@ public final class ChunkedReuseEnhancer implements AutoCloseable {
             executionDiagnostics = BackendSessionOptions.diagnostics(config, environment);
             if (manifest.requiresSelectiveScan) {
                 options.registerCustomOpLibrary(customOpLibrary.toAbsolutePath().toString());
+            }
+            if (configurer != null) {
+                configurer.configure(environment, options);
+                Map<String, Object> diagnostics = new LinkedHashMap<>(executionDiagnostics);
+                diagnostics.put("requested_backend", "EXTERNAL");
+                diagnostics.put("external_session_options_configurer", configurer.getClass().getName());
+                diagnostics.put("execution_scope", "Externally configured session; provider execution and coverage unverified");
+                executionDiagnostics = Collections.unmodifiableMap(diagnostics);
             }
             session = environment.createSession(modelPath.toAbsolutePath().toString(), options);
             validateGraph(manifest);
@@ -172,6 +203,23 @@ public final class ChunkedReuseEnhancer implements AutoCloseable {
 
     /** Requested backend/runtime metadata. Provider availability is not measured GPU coverage. */
     public Map<String, Object> executionDiagnostics() { return executionDiagnostics; }
+
+    /**
+     * Ends externally configured ORT profiling and returns its file for backend-specific verification.
+     * Call once after the measured executions. The configurer must have enabled profiling;
+     * do not combine this with built-in NNAPI verification, which owns its profiling lifecycle.
+     */
+    public synchronized Path endProfiling() throws OrtException {
+        checkReady();
+        if (config.backend != ReuseConfig.Backend.CPU)
+            throw new IllegalStateException("Built-in NNAPI verification owns its profiling lifecycle");
+        return java.nio.file.Paths.get(session.endProfiling());
+    }
+
+    static void validateExternalConfigurer(ReuseConfig config, SessionOptionsConfigurer configurer) {
+        if (configurer != null && config.backend != ReuseConfig.Backend.CPU)
+            throw new IllegalArgumentException("External session configuration cannot be combined with the built-in NNAPI backend");
+    }
 
     /** Stops startup profiling and verifies NNAPI kernel execution; CPU mode is a no-op. */
     public synchronized void verifyAcceleratorExecution() throws IOException, OrtException {

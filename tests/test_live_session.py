@@ -47,7 +47,7 @@ public final class ChunkedReuseEnhancer {
     production = ROOT / "android/reuse-audio/src/main/java/io/github/reuse/live"
     run([javac, "-d", str(classes), str(ROOT / "android/reuse/src/main/java/io/github/reuse/ReuseConfig.java"), str(stubs / "ChunkedReuseEnhancer.java"),
          str(production / "FirResampler.java"), str(production / "EnhancementSession.java"),
-         str(ROOT / "tests/live/SessionHarness.java")])
+         str(ROOT / "tests/live/SessionHarness.java"), str(ROOT / "tests/live/PublicEngineFactoryHarness.java")])
     native = BUILD / "native" / ("Release" if os.name == "nt" else "")
     return java, classes, native
 
@@ -57,6 +57,17 @@ def test_live_session_contract(session_java, case, tmp_path):
     java, classes, native = session_java
     result = run([java, f"-Djava.library.path={native}", "-cp", str(classes),
                   "io.github.reuse.live.SessionHarness", case, str(tmp_path / case)], timeout=30)
+    report = json.loads(result.stdout)
+    assert report["passed"] is True
+    (BUILD / f"{case}.json").write_text(json.dumps(report, indent=2) + "\n")
+
+
+@pytest.mark.parametrize("case", ["factory_lifecycle", "factory_failure", "factory_queue", "factory_nulls",
+                                "factory_details_processing", "factory_details_bound"])
+def test_public_engine_factory(session_java, case, tmp_path):
+    java, classes, native = session_java
+    result = run([java, f"-Djava.library.path={native}", "-cp", str(classes),
+                  "io.github.reuse.externaltest.PublicEngineFactoryHarness", case, str(tmp_path / case)], timeout=30)
     report = json.loads(result.stdout)
     assert report["passed"] is True
     (BUILD / f"{case}.json").write_text(json.dumps(report, indent=2) + "\n")

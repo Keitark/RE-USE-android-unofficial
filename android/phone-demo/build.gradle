@@ -1,6 +1,21 @@
 plugins { id 'com.android.application' }
 
 def gpuExperimental = providers.gradleProperty('reuseGpuExperimental').getOrElse('false') == 'true'
+def qnnExperimental = providers.gradleProperty('reuseQnnExperimental').getOrElse('false') == 'true'
+if (gpuExperimental && qnnExperimental)
+    throw new GradleException('Build GPU and QNN experiments separately; their ONNX Runtime packages differ.')
+def qnnModelSource = rootProject.file(providers.gradleProperty('reuseQnnPhoneModel')
+        .getOrElse('.research/qnn-eightconv-assets/full-candidate'))
+def qnnModelSha = ''
+def qnnManifestSha = ''
+if (qnnExperimental) {
+    def manifestFile = new File(qnnModelSource, 'manifest.json')
+    if (!manifestFile.isFile())
+        throw new GradleException('Generate the eight-convolution candidate with tools/prepare_qnn_multiconv.py first; see docs/qnn-convolution-experiments.md.')
+    qnnModelSha = new groovy.json.JsonSlurper().parse(manifestFile).model_sha256
+    if (!(qnnModelSha ==~ /[0-9a-f]{64}/)) throw new GradleException('Invalid QNN candidate model hash.')
+    qnnManifestSha = java.security.MessageDigest.getInstance('SHA-256').digest(manifestFile.bytes).encodeHex().toString()
+}
 def modelSource = rootProject.file('models/reuse-8k-exit3-native-chunk5-sequence-pad-softplus-temporal-channelnorm-frequency')
 def generatedAssets = layout.buildDirectory.dir('generated/phoneAssets')
 def copyPhoneAssets = tasks.register('copyPhoneAssets', Sync) {
@@ -12,6 +27,14 @@ def copyPhoneAssets = tasks.register('copyPhoneAssets', Sync) {
     }
     if (gpuExperimental) {
         from(rootProject.file('.research/ort-gpu-build/runtime-provenance.json')) { into 'gpu-runtime' }
+    }
+    if (qnnExperimental) {
+        inputs.dir(qnnModelSource)
+        from(qnnModelSource) {
+            include 'model.onnx', 'manifest.json', 'LICENSE-NVIDIA.txt'
+            into 'qnn-model'
+        }
+        from(rootProject.file('docs/licenses/qnn')) { into 'qnn-notices' }
     }
     doFirst {
         if (!new File(modelSource, 'model.onnx').isFile())
@@ -25,28 +48,38 @@ android {
     namespace 'io.github.reuse.phone'
     compileSdk 35
     defaultConfig {
-        applicationId gpuExperimental ? 'io.github.reuse.phone.gpu' : 'io.github.reuse.phone'
-        minSdk (gpuExperimental ? 29 : 26)
+        applicationId qnnExperimental ? 'io.github.reuse.phone.qnn' : gpuExperimental ? 'io.github.reuse.phone.gpu' : 'io.github.reuse.phone'
+        minSdk ((gpuExperimental || qnnExperimental) ? 29 : 26)
         targetSdk 35
-        versionCode gpuExperimental ? 4 : 2
-        versionName gpuExperimental ? '0.2.0-gpu-preview2' : '0.1.1'
-        manifestPlaceholders = [demoLabel: gpuExperimental ? 'RE-USE GPU Preview (Unofficial)' : 'RE-USE Demo (Unofficial)']
+        versionCode qnnExperimental ? 1 : gpuExperimental ? 4 : 2
+        versionName qnnExperimental ? '0.4.0-qnn-mic-preview1' : gpuExperimental ? '0.2.0-gpu-preview2' : '0.1.1'
+        manifestPlaceholders = [demoLabel: qnnExperimental ? 'RE-USE QNN Demo (Unofficial)' : gpuExperimental ? 'RE-USE GPU Preview (Unofficial)' : 'RE-USE Demo (Unofficial)']
         buildConfigField 'boolean', 'GPU_EXPERIMENTAL', gpuExperimental.toString()
-        ndk { abiFilters(*(gpuExperimental ? ['arm64-v8a'] : ['arm64-v8a', 'x86_64'])) }
+        buildConfigField 'boolean', 'QNN_EXPERIMENTAL', qnnExperimental.toString()
+        buildConfigField 'String', 'QNN_MODEL_SHA', '"' + qnnModelSha + '"'
+        buildConfigField 'String', 'QNN_MANIFEST_SHA', '"' + qnnManifestSha + '"'
+        ndk { abiFilters(*((gpuExperimental || qnnExperimental) ? ['arm64-v8a'] : ['arm64-v8a', 'x86_64'])) }
     }
     buildFeatures { buildConfig true }
-    sourceSets { main { assets.srcDir generatedAssets } }
+    sourceSets { main {
+        assets.srcDir generatedAssets
+        java.srcDir(qnnExperimental ? 'src/qnn/java' : 'src/cpu/java')
+    } }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
     buildTypes { release { minifyEnabled false } }
-    packaging { jniLibs { useLegacyPackaging = true } }
+    packaging { jniLibs {
+        useLegacyPackaging = true
+        if (qnnExperimental) keepDebugSymbols += ['**/*.so']
+    } }
 }
 
 tasks.named('preBuild').configure { dependsOn(copyPhoneAssets) }
 dependencies {
     implementation project(':reuse-audio')
+    if (qnnExperimental) implementation project(':reuse-audio-qnn')
     implementation 'androidx.core:core:1.13.1'
     testImplementation 'junit:junit:4.13.2'
 }

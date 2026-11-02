@@ -103,6 +103,15 @@ layer measurements, not full-model RTF. The probe does not record audio or
 accelerate the full microphone pipeline. Its dependencies are isolated from
 the existing demos.
 
+The experimental [QNN/quantized CPU demo](docs/qnn-convolution-experiments.md)
+runs the complete causal model on Xperia 1 IV. A **58.32-second paced PCM test**
+averaged **70.8 ms FP32 CPU / 64.5 ms partially quantized CPU / 72.6 ms QNN + CPU**
+per 100 ms call, with no application drops or overruns. Quantized CPU was fastest;
+QNN did not provide a speed advantage. These sequential public-clip tests do not
+establish microphone capture, speaker playout or general audio quality. The
+optional QNN APK and libraries are separate from the stable CPU download above.
+See the [earlier one-convolution experiments](docs/qnn-hybrid.md) for comparison.
+
 The demo is an adapter around reusable AARs. Both the phone app and optional G2
 companion consume the same enhancement pipeline.
 
@@ -110,6 +119,8 @@ companion consume the same enhancement pipeline.
 |---|---|
 | `:reuse` | Core model, stateful STFT, and native ONNX operations |
 | `:reuse-audio` | Bounded PCM sessions, resampling, recording, and statistics |
+| `:reuse-qnn` | Optional QNN HTP session backend and execution evidence |
+| `:reuse-audio-qnn` | Optional QNN engine for the shared PCM session |
 | `:phone-demo` | Ordinary Android microphone, UI, playback, and sharing |
 | `:live-companion` | Optional Even G2 / Hub transport |
 
