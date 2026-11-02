@@ -19,7 +19,8 @@ is preserved.
 The [probe2 build receipt](validation/qnn-probe2-build.json) records 24 passing
 host tests, a successful APK build, 0 lint errors / 8 warnings, signature and
 fixture checks, and an unchanged native runtime payload. Probe2's device
-convolution support and CPU/NPU comparisons remain unmeasured until a new run.
+convolution support and CPU/NPU comparisons were subsequently checked in the
+physical run below; the build receipt itself remains a host-only record.
 
 Install `reuse-qnn-probe.apk` and open **RE-USE QNN Probe (Unofficial)**. Press
 **Run NPU test**, keep the screen open, then use **Share diagnostics** to export
@@ -34,8 +35,43 @@ SM8450, Android 14: the actual RE-USE projection averaged **1.876 ms**, with
 **2.093 ms p95**, across 20 timed calls. CPU fallback was disabled and each graph
 reported 21 QNN kernel events. This is application-level evidence from the
 reported JSON; raw profiles and hardware-counter traces were not supplied.
-Other devices, new convolution cases and full-model performance need their own
+Other devices, repeatability and full-model performance need their own
 tests. An emulator cannot establish NPU compatibility or speed.
+
+## Xperia CPU/NPU comparison
+
+The [complete probe2 diagnostics](validation/qnn-xperia-probe2.json) were pulled
+over USB after the user's device run. All twelve matching ORT profiles were
+read: each NPU graph has 25 QNN kernel events and no CPU EP events, while CPU
+baselines contain only CPU EP events. All output checks pass their predefined
+fixture tolerances.
+
+Mean synchronous call times in milliseconds, after five warm-ups:
+
+| RE-USE operation | CPU FP32 | CPU QDQ | QNN HTP QDQ |
+| --- | ---: | ---: | ---: |
+| Input projection | 1.164 | **1.067** | 1.414 |
+| Encoder stride-2 Conv | **0.322** | 0.357 | 0.502 |
+| Encoder dilated Conv | 3.853 | 1.527 | **0.976** |
+
+The heavier convolution is **3.95 times faster than the FP32 CPU baseline**
+and **1.56 times faster than CPU execution of the same quantized graph**. It
+saves about 2.88 ms per isolated call relative to FP32. The smaller convolution
+and projection favor CPU in this run. This supports selective offloading of
+substantial convolution work, not moving every operation to the NPU.
+
+Quantization itself matters: CPU QDQ reduces the heavy operation's call time
+by 60.4% from FP32; QNN reduces it by a further 36.0% from CPU QDQ. Profiled CPU
+QDQ nodes include approximately 0.328 ms input quantization, 0.130 ms input
+transpose, 0.577 ms QLinearConv, and 0.042 ms combined output transpose and
+dequantization. These node durations omit dispatch/readback portions of the
+wall-clock measurement. Grouping compatible work could reduce repeated
+boundary costs, but requires a separate experiment.
+
+These are short, sequential, isolated tests with profiling enabled. They do
+not measure the complete model, sustained thermal performance, microphone
+latency or speech quality. Passing provider profiles establishes execution
+through QNN's HTP path; no hardware-counter trace was collected.
 
 The original [probe1 build receipt](validation/qnn-probe1-build.json) records 13 passing host
 tests, package checks, and the separate emulator UI check. In the API 35 x86
@@ -164,3 +200,13 @@ Mamba, normalization and fused convolution operations. Full-model acceleration
 requires compatible lowering or deliberate hybrid partitions, representative
 chronological state calibration, and audio-quality checks. Fast execution of a
 single projection does not establish a useful full-model speedup.
+
+The first grouped candidate is the encoder tail: the measured heavy Conv,
+its channel normalization/PReLU, the following stride-2 Conv, and its channel
+normalization/PReLU. Grouping them can avoid a separate NPU dispatch for the
+small Conv. Its feature input is `[1,256,21,163]`, and its output is
+`[1,64,5,81]`. CPU-side history assembly/slicing can preserve `state_004` and
+the existing 21-state streaming ABI. The two custom `ChannelNormPRelu` nodes
+must first be lowered to supported operations and recalibrated; full-region
+provider coverage and recurrent quantized accuracy remain untested. This is
+a proposed experiment, not an implemented microphone backend.

@@ -96,10 +96,11 @@ performance remain unverified; the existing CPU download above is unchanged.
 
 A separate [QNN HTP probe](docs/qnn-probe.md) compares CPU FP32, CPU quantized
 and NPU execution of a synthetic graph, one RE-USE projection and two encoder
-convolutions. A [user-supplied Xperia probe1 result](docs/validation/qnn-xperia-probe1-user-report.json)
-confirms the original projection test passed on HTP at 1.876 ms mean; this is
-not a full-model RTF or a measured CPU speedup. The probe does not record audio
-or accelerate the full microphone pipeline. Its dependencies are isolated from
+convolutions. The [Xperia probe2 results](docs/qnn-probe.md#xperia-cpunpu-comparison)
+show the heavier convolution at **3.853 ms CPU FP32 / 1.527 ms CPU quantized /
+0.976 ms NPU**, while the smaller operations favor CPU. These are isolated
+layer measurements, not full-model RTF. The probe does not record audio or
+accelerate the full microphone pipeline. Its dependencies are isolated from
 the existing demos.
 
 The demo is an adapter around reusable AARs. Both the phone app and optional G2

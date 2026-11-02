@@ -1,0 +1,282 @@
+{
+  "schema_version": 1,
+  "source": "USB-pulled app diagnostics and twelve matching ORT profiles",
+  "reported_date": "2026-11-02",
+  "app_version": "0.3.0-qnn-probe2",
+  "device": {
+    "manufacturer": "Sony",
+    "model": "SO-51C",
+    "soc": "SM8450",
+    "android_release": "14",
+    "android_api": 34
+  },
+  "runtime": {
+    "ort": "1.29.0",
+    "qnn_plugin_package": "2.7.0",
+    "qnn_runtime_package": "2.51.0"
+  },
+  "comparison_all_verified": true,
+  "raw_profiles_independently_read": 12,
+  "hardware_counter_trace_supplied": false,
+  "method": {
+    "warmup_calls": 5,
+    "timed_calls": 20,
+    "order": "CPU FP32, CPU QDQ, QNN HTP per case",
+    "cpu_ort_threads": {
+      "intra_op": 2,
+      "inter_op": 1
+    },
+    "qnn_ort_threads": {
+      "intra_op": 1,
+      "inter_op": 1
+    },
+    "htp_performance_mode": "balanced",
+    "thermal_state_controlled": false,
+    "timing_scope": "Synchronous ORT run plus output readback and profiling; excludes compilation, warm-up and reference comparison"
+  },
+  "cases": [
+    {
+      "id": "synthetic_matmul_u8",
+      "comparison_ready": true,
+      "backends": {
+        "cpu_fp32": {
+          "mean_call_wall_ms": 0.10795585000000003,
+          "p95_call_wall_ms": 0.134323,
+          "max_call_wall_ms": 0.169636,
+          "session_create_compile_ms": 8.104948,
+          "warmup_first_call_wall_ms": 0.751771,
+          "maximum_absolute_error": 0,
+          "absolute_tolerance": 0.0001,
+          "rmse": 0,
+          "normalized_rmse": 0,
+          "execution_verified": true,
+          "correctness_passed": true,
+          "independently_read_profile_provider_counts": {
+            "CPUExecutionProvider": 25
+          }
+        },
+        "cpu_qdq": {
+          "mean_call_wall_ms": 0.0916041,
+          "p95_call_wall_ms": 0.105937,
+          "max_call_wall_ms": 0.196927,
+          "session_create_compile_ms": 1.354219,
+          "warmup_first_call_wall_ms": 0.311927,
+          "maximum_absolute_error": 0,
+          "absolute_tolerance": 0.02165986904874444,
+          "rmse": 0,
+          "normalized_rmse": 0,
+          "execution_verified": true,
+          "correctness_passed": true,
+          "independently_read_profile_provider_counts": {
+            "CPUExecutionProvider": 75
+          }
+        },
+        "qnn_htp": {
+          "mean_call_wall_ms": 0.33865095000000006,
+          "p95_call_wall_ms": 0.362292,
+          "max_call_wall_ms": 0.483489,
+          "session_create_compile_ms": 315.92875,
+          "warmup_first_call_wall_ms": 1.12927,
+          "maximum_absolute_error": 0.010314226150512695,
+          "absolute_tolerance": 0.02165986904874444,
+          "rmse": 0.003411108009012078,
+          "normalized_rmse": 0.011737494343605192,
+          "execution_verified": true,
+          "correctness_passed": true,
+          "independently_read_profile_provider_counts": {
+            "QNNExecutionProvider": 25
+          }
+        }
+      },
+      "cpu_fp32_over_qnn_speedup": 0.3187820674945693,
+      "cpu_qdq_over_qnn_speedup": 0.2704971003329534,
+      "fp32_cpu_minus_npu_call_ms": -0.23069510000000004,
+      "npu_call_time_reduction_from_fp32_cpu_percent": -213.69393136175572
+    },
+    {
+      "id": "reuse_in_proj_u8",
+      "comparison_ready": true,
+      "backends": {
+        "cpu_fp32": {
+          "mean_call_wall_ms": 1.1640103000000002,
+          "p95_call_wall_ms": 1.337916,
+          "max_call_wall_ms": 1.50224,
+          "session_create_compile_ms": 1.399271,
+          "warmup_first_call_wall_ms": 1.884635,
+          "maximum_absolute_error": 0,
+          "absolute_tolerance": 0.0001,
+          "rmse": 0,
+          "normalized_rmse": 0,
+          "execution_verified": true,
+          "correctness_passed": true,
+          "independently_read_profile_provider_counts": {
+            "CPUExecutionProvider": 25
+          }
+        },
+        "cpu_qdq": {
+          "mean_call_wall_ms": 1.0672317500000001,
+          "p95_call_wall_ms": 1.173906,
+          "max_call_wall_ms": 1.239948,
+          "session_create_compile_ms": 1.141615,
+          "warmup_first_call_wall_ms": 1.280677,
+          "maximum_absolute_error": 0,
+          "absolute_tolerance": 0.09573614895343781,
+          "rmse": 0,
+          "normalized_rmse": 0,
+          "execution_verified": true,
+          "correctness_passed": true,
+          "independently_read_profile_provider_counts": {
+            "CPUExecutionProvider": 75
+          }
+        },
+        "qnn_htp": {
+          "mean_call_wall_ms": 1.41447405,
+          "p95_call_wall_ms": 1.499271,
+          "max_call_wall_ms": 1.693489,
+          "session_create_compile_ms": 261.532083,
+          "warmup_first_call_wall_ms": 2.080782,
+          "maximum_absolute_error": 0.0915367603302002,
+          "absolute_tolerance": 0.09573614895343781,
+          "rmse": 0.02376072029103567,
+          "normalized_rmse": 0.022852475682040116,
+          "execution_verified": true,
+          "correctness_passed": true,
+          "independently_read_profile_provider_counts": {
+            "QNNExecutionProvider": 25
+          }
+        }
+      },
+      "cpu_fp32_over_qnn_speedup": 0.8229279992800153,
+      "cpu_qdq_over_qnn_speedup": 0.754507832787742,
+      "fp32_cpu_minus_npu_call_ms": -0.25046374999999976,
+      "npu_call_time_reduction_from_fp32_cpu_percent": -21.517313893184607
+    },
+    {
+      "id": "reuse_encoder_stride2_conv_u8",
+      "comparison_ready": true,
+      "backends": {
+        "cpu_fp32": {
+          "mean_call_wall_ms": 0.32160659999999996,
+          "p95_call_wall_ms": 0.33177,
+          "max_call_wall_ms": 0.345989,
+          "session_create_compile_ms": 1.2475,
+          "warmup_first_call_wall_ms": 0.695365,
+          "maximum_absolute_error": 9.5367431640625e-06,
+          "absolute_tolerance": 0.0001,
+          "rmse": 7.154266111486568e-07,
+          "normalized_rmse": 1.9584797160206826e-07,
+          "execution_verified": true,
+          "correctness_passed": true,
+          "independently_read_profile_provider_counts": {
+            "CPUExecutionProvider": 25
+          }
+        },
+        "cpu_qdq": {
+          "mean_call_wall_ms": 0.35691160000000005,
+          "p95_call_wall_ms": 0.375573,
+          "max_call_wall_ms": 0.508229,
+          "session_create_compile_ms": 1.384375,
+          "warmup_first_call_wall_ms": 0.503802,
+          "maximum_absolute_error": 0,
+          "absolute_tolerance": 0.257623840123415,
+          "rmse": 0,
+          "normalized_rmse": 0,
+          "execution_verified": true,
+          "correctness_passed": true,
+          "independently_read_profile_provider_counts": {
+            "CPUExecutionProvider": 125
+          }
+        },
+        "qnn_htp": {
+          "mean_call_wall_ms": 0.5022265000000001,
+          "p95_call_wall_ms": 0.58125,
+          "max_call_wall_ms": 0.678698,
+          "session_create_compile_ms": 256.115833,
+          "warmup_first_call_wall_ms": 1.1925,
+          "maximum_absolute_error": 0.12267875671386719,
+          "absolute_tolerance": 0.257623840123415,
+          "rmse": 0.026407102123530618,
+          "normalized_rmse": 0.007228459299499413,
+          "execution_verified": true,
+          "correctness_passed": true,
+          "independently_read_profile_provider_counts": {
+            "QNNExecutionProvider": 25
+          }
+        }
+      },
+      "cpu_fp32_over_qnn_speedup": 0.6403616694857795,
+      "cpu_qdq_over_qnn_speedup": 0.7106586370890424,
+      "fp32_cpu_minus_npu_call_ms": -0.18061990000000017,
+      "npu_call_time_reduction_from_fp32_cpu_percent": -56.16175165559418
+    },
+    {
+      "id": "reuse_encoder_dilated_conv_u8",
+      "comparison_ready": true,
+      "backends": {
+        "cpu_fp32": {
+          "mean_call_wall_ms": 3.8528567500000017,
+          "p95_call_wall_ms": 3.989323,
+          "max_call_wall_ms": 4.00224,
+          "session_create_compile_ms": 1.994427,
+          "warmup_first_call_wall_ms": 5.095625,
+          "maximum_absolute_error": 1.52587890625e-05,
+          "absolute_tolerance": 0.0001,
+          "rmse": 5.334159887844332e-07,
+          "normalized_rmse": 3.979143978797014e-08,
+          "execution_verified": true,
+          "correctness_passed": true,
+          "independently_read_profile_provider_counts": {
+            "CPUExecutionProvider": 25
+          }
+        },
+        "cpu_qdq": {
+          "mean_call_wall_ms": 1.52680725,
+          "p95_call_wall_ms": 1.586198,
+          "max_call_wall_ms": 1.595469,
+          "session_create_compile_ms": 1.799791,
+          "warmup_first_call_wall_ms": 3.379844,
+          "maximum_absolute_error": 0,
+          "absolute_tolerance": 1.0078135371208192,
+          "rmse": 0,
+          "normalized_rmse": 0,
+          "execution_verified": true,
+          "correctness_passed": true,
+          "independently_read_profile_provider_counts": {
+            "CPUExecutionProvider": 125
+          }
+        },
+        "qnn_htp": {
+          "mean_call_wall_ms": 0.97648455,
+          "p95_call_wall_ms": 1.089583,
+          "max_call_wall_ms": 1.090886,
+          "session_create_compile_ms": 253.675104,
+          "warmup_first_call_wall_ms": 1.903593,
+          "maximum_absolute_error": 0.47991371154785156,
+          "absolute_tolerance": 1.0078135371208192,
+          "rmse": 0.13530278682262536,
+          "normalized_rmse": 0.010078224886778812,
+          "execution_verified": true,
+          "correctness_passed": true,
+          "independently_read_profile_provider_counts": {
+            "QNNExecutionProvider": 25
+          }
+        }
+      },
+      "cpu_fp32_over_qnn_speedup": 3.9456402561617607,
+      "cpu_qdq_over_qnn_speedup": 1.5635754298416704,
+      "fp32_cpu_minus_npu_call_ms": 2.876372200000002,
+      "npu_call_time_reduction_from_fp32_cpu_percent": 74.65557083065704
+    }
+  ],
+  "interpretation": {
+    "heavy_dilated_conv": "NPU faster than both measured CPU baselines",
+    "projection_and_small_stride2_conv": "CPU faster than NPU in this run",
+    "all_numerical_checks": "Within predefined smoke-test tolerances"
+  },
+  "limits": [
+    "One short sequential run per backend; repeatability and sustained performance not established",
+    "Isolated layer timings, not complete model RTF or microphone latency",
+    "Quantized-vs-FP32 comparisons include precision changes; speech quality unverified"
+  ],
+  "privacy": "Sanitized summary; raw phone paths, device serial, capture identifiers and exact timestamps omitted; raw JSON/profiles retained only in ignored local research storage"
+}
