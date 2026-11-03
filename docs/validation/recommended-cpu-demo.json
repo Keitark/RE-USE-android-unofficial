@@ -1,0 +1,132 @@
+{
+  "schema": "reuse.recommended-cpu-demo-validation.v1",
+  "date_local": "2026-11-03",
+  "release": "v0.8.0-cpu-demo-preview1",
+  "scope": "Build, tests, independent Maven consumer, package checks and Android x86_64 public-input parity/UI. Not a new Xperia microphone or sustained-performance result.",
+  "app": {
+    "package": "io.github.reuse.phone",
+    "version": "0.8.0-cpu-demo-preview1",
+    "version_code": 8,
+    "apk_sha256": "e7075bf052a3c046bd78da306ba0b28752a2890232c4b767d558c816151b5f7a",
+    "bytes": 39401240,
+    "min_api": 26,
+    "target_api": 35,
+    "abis": [
+      "arm64-v8a",
+      "x86_64"
+    ],
+    "debug_signed": true,
+    "internet_permission": false
+  },
+  "profile": {
+    "id": "reuse-8k-exit3-fp32-cpu",
+    "model_sha256": "f950dcfb9321191b2bcb3ab9afa3e100c40e5c64dd1de1d30849be4c1aacce32",
+    "manifest_sha256": "f267070eec9b12193c959ca973b00d2b82fcd049ac97ea9d9d41a05201009ce2",
+    "ort_version": "1.29.0",
+    "default_threads": 4,
+    "model_rate": 8000,
+    "capture_output_rate": 16000,
+    "exit_layers": 3,
+    "frames_per_call": 5,
+    "precision": "FP32",
+    "neon_fma_build_option": true,
+    "rank16_register_scan_build_option": true,
+    "model_bytes_changed": false
+  },
+  "checks": {
+    "gradle_build_passed": true,
+    "lint_errors": 0,
+    "lint_warnings": 24,
+    "jvm": {
+      "core": 37,
+      "phone": 16,
+      "live_companion": 12,
+      "compute_probe_regression": 74,
+      "all_failures": 0,
+      "qnn_phone_variant_policy_tests": 16
+    },
+    "host_jni_session_tests": 18,
+    "model_preparation_tests": 15,
+    "concurrent_timing_regression_mutant_rejected": true,
+    "independent_maven_consumer_compile_passed": true,
+    "apk_signature_verified": true,
+    "native_16kb_load_alignment_passed": true
+  },
+  "package_native_identity": {
+    "arm64-v8a": {
+      "phone_and_benchmark_kernel_sha256": "bb546b61887d3f98c80ef977ee74c46a5a7cfcd0aa57a28e3e6971516da41773",
+      "release_aar_kernel_sha256": "d6c4f503dd50dcb5c08ef19f54d0cd13a1627d3f890f533c9f126f52338e9e8e",
+      "phone_benchmark_kernel_identical": true,
+      "release_aar_same_native_bytes": false,
+      "all_apk_native_load_segments_16kb_aligned": true
+    },
+    "x86_64": {
+      "phone_and_benchmark_kernel_sha256": "b95685c2b487563289d2bb28bc20333f39fbc9b943d15c05b73ab2e415409231",
+      "release_aar_kernel_sha256": "f9475297bf8ae59edba6066f645dd14a75a257e1e1243b1fae41e344546add13",
+      "phone_benchmark_kernel_identical": true,
+      "release_aar_same_native_bytes": false,
+      "all_apk_native_load_segments_16kb_aligned": true
+    },
+    "library_variant": "release; compiled/consumer-checked, not independently device-timed; native bytes differ from debug demo",
+    "demo_variant": "debug; runtime and numerical checks apply to demo-matching benchmark binary",
+    "maven_only_consumer_compile_passed": true
+  },
+  "android_emulator": {
+    "scope": "API35 x86_64 Android emulator UI and public-input numerical/lifecycle compatibility; no phone performance, microphone or playout claim",
+    "microphone_started": false,
+    "audio_captured": false,
+    "record_audio_permission_granted": false,
+    "installed_apk_sha256": "e7075bf052a3c046bd78da306ba0b28752a2890232c4b767d558c816151b5f7a",
+    "installed_apk_matches_local": true,
+    "version": "0.8.0-cpu-demo-preview1",
+    "emulator": {
+      "api_level": 35,
+      "native_abi": "x86_64"
+    },
+    "ui": {
+      "unofficial_title": true,
+      "recommended_profile_visible": true,
+      "default_four_threads": true,
+      "diagnostics_button_visible": true,
+      "diagnostics_button_disabled_without_results": true
+    },
+    "parity": {
+      "onnxruntime_version": "1.29.0",
+      "model_sha256": "f950dcfb9321191b2bcb3ab9afa3e100c40e5c64dd1de1d30849be4c1aacce32",
+      "manifest_sha256": "f267070eec9b12193c959ca973b00d2b82fcd049ac97ea9d9d41a05201009ce2",
+      "input_sha256": "cf80225463a027dd5f3ea8d02d1933d677b846300aecd796cfd59dd1fd95a5ff",
+      "expected_sha256": "c0151ff1156d752c41cb3eede6c7b462a3b5a097e50ee424cf929cc134c09c44",
+      "model_calls": 20,
+      "input_samples": 16000,
+      "output_samples": 16000,
+      "parity_max_abs": 1.087784767150879e-06,
+      "parity_rmse": 8.194427863645328e-08,
+      "parity_pass": true,
+      "lifecycle_pass": true,
+      "native_kernel_build_info": {
+        "schema_version": 1,
+        "architecture": "x86_64",
+        "simd_implementation": "sse2",
+        "neon_fma_build_option": true,
+        "neon_fma_compiled": false,
+        "rank16_register_scan_compiled": true,
+        "exact_exp_build_option": false,
+        "scan_channel_grain": 16,
+        "scope": "Compiled kernel capabilities; not per-call execution verification"
+      }
+    }
+  },
+  "physical_xperia": {
+    "apk_install_succeeded": true,
+    "inference_check_completed": false,
+    "microphone_started": false,
+    "audio_captured": false,
+    "reason": "Disconnected after installation; unlocked public-input check remains pending."
+  },
+  "limitations": [
+    "The previous 38.327 ms figure is a separate instrumented public-clip result, not measured on this new microphone APK.",
+    "Emulator timing is not physical-phone evidence.",
+    "Release AARs were built and consumer-compiled; they have different native bytes from the debug demo and have not been independently device-timed.",
+    "No fresh microphone capture, sustained thermal run, source-to-speaker latency or AudioTrack underrun check was performed."
+  ]
+}

@@ -16,6 +16,7 @@ import android.os.Process;
 import android.os.SystemClock;
 import io.github.reuse.live.EnhancementSession;
 import io.github.reuse.ReuseConfig;
+import io.github.reuse.RecommendedCpuProfile;
 import io.github.reuse.RuntimeBuildInfo;
 import ai.onnxruntime.OrtEnvironment;
 import ai.onnxruntime.OrtException;
@@ -95,7 +96,7 @@ public final class PhoneCaptureController implements AutoCloseable {
 
     private static final int RATE = 16000, READ_SAMPLES = 800, MAX_SAMPLES = RATE * 60;
     private static final int MAX_OUTPUT_TRACE_EVENTS = 1300;
-    private static final String MODEL_SHA = "f950dcfb9321191b2bcb3ab9afa3e100c40e5c64dd1de1d30849be4c1aacce32";
+    private static final String MODEL_SHA = RecommendedCpuProfile.MODEL_SHA256;
     private final Context context;
     private final Listener listener;
     private final SessionFactory qnnSessionFactory;
@@ -116,6 +117,7 @@ public final class PhoneCaptureController implements AutoCloseable {
         final boolean gpuRequested, fp16Requested, qnnRequested, quantizedCpuRequested;
         volatile String modelSha256;
         volatile String runtimeBuildInfo = "not_read";
+        volatile String runtimeVersion = "not_read", kernelBuildInfo = "not_read", provenanceError = "";
         volatile GpuAvailability availability;
         final Path directory;
         final Object recorderLock = new Object();
@@ -143,7 +145,7 @@ public final class PhoneCaptureController implements AutoCloseable {
             this.threads = threads; this.gpuRequested = gpuRequested;
             this.fp16Requested = fp16Requested; this.qnnRequested = qnnRequested; this.directory = directory;
             this.quantizedCpuRequested = quantizedCpuRequested;
-            this.modelSha256 = qnnRequested || quantizedCpuRequested ? "not_loaded" : MODEL_SHA;
+            this.modelSha256 = "not_loaded";
         }
     }
 
@@ -269,7 +271,10 @@ public final class PhoneCaptureController implements AutoCloseable {
                                        boolean qnnRequested, boolean quantizedCpuRequested,
                                        boolean gpuBuild, boolean qnnBuild, boolean qnnFactoryAvailable,
                                        boolean quantizedCpuFactoryAvailable) {
-        if (threads != 2 && threads != 4) throw new IllegalArgumentException("Choose 2 or 4 CPU threads");
+        if (quantizedCpuRequested ? threads != 1 : threads != 2 && threads != 4)
+            throw new IllegalArgumentException(quantizedCpuRequested
+                    ? "Quantized CPU mode requires 1 thread; higher counts failed the numerical consistency check"
+                    : "Choose 2 or 4 CPU threads");
         if ((gpuRequested ? 1 : 0) + (qnnRequested ? 1 : 0) + (quantizedCpuRequested ? 1 : 0) > 1)
             throw new IllegalArgumentException("Choose only one GPU, QNN or quantized CPU processing mode");
         if (gpuRequested && !gpuBuild)
@@ -305,6 +310,7 @@ public final class PhoneCaptureController implements AutoCloseable {
     private void prepare(Run run) {
         try {
             if (cancelBeforeEngine(run)) return;
+            readRuntimeIdentity(run);
             EnhancementSession.Listener engineListener = new EnhancementSession.Listener() {
                 @Override public void onReady() { startMicrophone(run); }
                 @Override public void onAudio(byte[] pcm) { traceOutputAvailability(run, pcm); }
@@ -315,10 +321,8 @@ public final class PhoneCaptureController implements AutoCloseable {
             };
             Runnable initializer = () -> {
                 Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO);
-                if (BuildConfig.QNN_EXPERIMENTAL) {
-                    try { OrtEnvironment.getEnvironment().setTelemetry(false); }
-                    catch (OrtException error) { throw new IllegalStateException("Could not disable ONNX Runtime telemetry", error); }
-                }
+                try { OrtEnvironment.getEnvironment().setTelemetry(false); }
+                catch (OrtException error) { throw new IllegalStateException("Could not disable ONNX Runtime telemetry", error); }
             };
             EnhancementSession session;
             if (run.qnnRequested || run.quantizedCpuRequested) {
@@ -330,13 +334,12 @@ public final class PhoneCaptureController implements AutoCloseable {
                 session = prepared.session;
             } else {
                 Path model = extractModel();
+                run.modelSha256 = MODEL_SHA;
                 if (cancelBeforeEngine(run)) return;
                 Path custom = new File(context.getApplicationInfo().nativeLibraryDir, "libreuse_ort_ops.so").toPath();
                 if (!Files.isRegularFile(custom)) throw new IOException("The RE-USE native library is unavailable for this device");
                 if (BuildConfig.GPU_EXPERIMENTAL) {
                     run.availability = gpuAvailability;
-                    try { run.runtimeBuildInfo = RuntimeBuildInfo.read(); }
-                    catch (LinkageError error) { throw new IOException("Could not load the GPU runtime provenance bridge", error); }
                     if (run.gpuRequested && !run.runtimeBuildInfo.contains("REUSE_NNAPI_GPU_ONLY_V1"))
                         throw new IOException("GPU mode refused: the loaded runtime does not have the GPU-only device filter");
                     if (run.gpuRequested && run.availability != null && !run.availability.available)
@@ -353,6 +356,18 @@ public final class PhoneCaptureController implements AutoCloseable {
             }
             cancelBeforeEngine(run);
         } catch (Exception | LinkageError error) { failPreparation(run, error); }
+    }
+
+    /** Best-effort provenance, outside measured inference and before microphone access. */
+    private static void readRuntimeIdentity(Run run) {
+        ArrayList<String> errors = new ArrayList<>();
+        try { run.runtimeVersion = OrtEnvironment.getEnvironment().getVersion(); }
+        catch (Exception | LinkageError error) { errors.add("ORT version: " + error); }
+        try { run.runtimeBuildInfo = RuntimeBuildInfo.read(); }
+        catch (Exception | LinkageError error) { errors.add("ORT build: " + error); }
+        try { run.kernelBuildInfo = RuntimeBuildInfo.kernelBuildInfo(); }
+        catch (Exception | LinkageError error) { errors.add("Native kernel build: " + error); }
+        run.provenanceError = String.join("; ", errors);
     }
 
     private boolean cancelBeforeEngine(Run run) {
@@ -548,7 +563,9 @@ public final class PhoneCaptureController implements AutoCloseable {
             stats.put("qnn_requested", run.qnnRequested);
             stats.put("cpu_quantized_requested", run.quantizedCpuRequested);
             stats.put("model_sha256", run.modelSha256);
+            if (!run.qnnRequested && !run.quantizedCpuRequested) stats.put("expected_model_sha256", MODEL_SHA);
             stats.put("model_precision_label", modelPrecisionLabel(run.qnnRequested || run.quantizedCpuRequested, run.fp16Requested));
+            stats.putAll(processingIdentity(run));
             if (run.quantizedCpuRequested) stats.put("requested_backend", "CPU");
             if (error != null) { stats.put("phone_capture_error", error); stats.put("state", "ERROR"); }
             Files.write(run.directory.resolve("phone-capture.json"),
@@ -580,7 +597,9 @@ public final class PhoneCaptureController implements AutoCloseable {
         s.put("gpu_experimental_apk", BuildConfig.GPU_EXPERIMENTAL);
         s.put("qnn_experimental_apk", BuildConfig.QNN_EXPERIMENTAL);
         s.put("app_version", BuildConfig.VERSION_NAME); s.put("model_sha256", run.modelSha256);
+        if (!run.qnnRequested && !run.quantizedCpuRequested) s.put("expected_model_sha256", MODEL_SHA);
         s.put("model_precision_label", modelPrecisionLabel(run.qnnRequested || run.quantizedCpuRequested, run.fp16Requested));
+        s.putAll(processingIdentity(run));
         s.put("requested_backend", run.qnnRequested ? "QNN_HTP" : run.gpuRequested ? "NNAPI_ACCELERATOR" : "CPU");
         if (run.availability != null) {
             s.put("gpu_driver_available", run.availability.available);
@@ -654,11 +673,36 @@ public final class PhoneCaptureController implements AutoCloseable {
         if (candidateModel) return "QDQ model components; FP32 remaining model, IO and recurrent states";
         return fp16Relaxation ? "FP32 graph with NNAPI FP16 relaxation requested" : "FP32";
     }
+
+    private static Map<String, Object> processingIdentity(Run run) {
+        return processingIdentity(run.gpuRequested, run.qnnRequested, run.quantizedCpuRequested, run.threads,
+                run.runtimeVersion, run.runtimeBuildInfo, run.kernelBuildInfo, run.provenanceError);
+    }
+
+    /** Measured identities only; a recommended profile label does not verify execution or speed. */
+    static Map<String, Object> processingIdentity(boolean gpu, boolean qnn, boolean quantizedCpu,
+            int threads, String ortVersion, String ortBuild, String kernelBuild, String provenanceError) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        if (!gpu && !qnn && !quantizedCpu) {
+            result.put("recommended_cpu_profile_id", RecommendedCpuProfile.ID);
+            result.put("recommended_cpu_default_threads", RecommendedCpuProfile.DEFAULT_THREADS);
+            result.put("recommended_cpu_thread_setting_selected", threads == RecommendedCpuProfile.DEFAULT_THREADS);
+        }
+        result.put("ort_version", ortVersion);
+        result.put("ort_runtime_build_info", ortBuild);
+        Object kernel = kernelBuild;
+        try { kernel = new JSONObject(kernelBuild); }
+        catch (Exception ignored) { /* Keep explicit not_read/unavailable text from partial setup. */ }
+        result.put("native_kernel_build_info", kernel);
+        result.put("runtime_provenance_error", provenanceError);
+        return result;
+    }
+
     private void failPreparation(Run run, Throwable error) {
         String message = error.toString();
         String details = EnhancementSession.boundedErrorDetails(error);
         // A user away from ADB can share a failed startup receipt without voice data.
-        if (BuildConfig.GPU_EXPERIMENTAL || BuildConfig.QNN_EXPERIMENTAL) try {
+        try {
             Files.createDirectories(run.directory);
             run.captureError = message;
             Map<String, Object> failure = new LinkedHashMap<>();
@@ -671,7 +715,9 @@ public final class PhoneCaptureController implements AutoCloseable {
             failure.put("qnn_requested", run.qnnRequested);
             failure.put("cpu_quantized_requested", run.quantizedCpuRequested);
             failure.put("model_sha256", run.modelSha256);
+            if (!run.qnnRequested && !run.quantizedCpuRequested) failure.put("expected_model_sha256", MODEL_SHA);
             failure.put("model_precision_label", modelPrecisionLabel(run.qnnRequested || run.quantizedCpuRequested, run.fp16Requested));
+            failure.putAll(processingIdentity(run));
             Map<String, Object> phone = captureMetadata(run, failure, false);
             phone.put("error_details", details);
             Files.write(run.directory.resolve("phone-capture.json"),

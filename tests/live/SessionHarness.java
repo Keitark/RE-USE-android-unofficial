@@ -15,6 +15,7 @@ public final class SessionHarness {
     static void require(boolean value, String text) { if (!value) throw new AssertionError(text); }
     static void await(CountDownLatch latch) throws Exception { require(latch.await(10, TimeUnit.SECONDS), "Timed out"); }
     static long number(Map<String,Object> m, String key) { return ((Number)m.get(key)).longValue(); }
+    static double decimal(Map<String,Object> m, String key) { return ((Number)m.get(key)).doubleValue(); }
     static final class Result implements EnhancementSession.Listener {
         final CountDownLatch ready = new CountDownLatch(1), done = new CountDownLatch(1);
         final ByteArrayOutputStream audio = new ByteArrayOutputStream();
@@ -161,26 +162,38 @@ public final class SessionHarness {
         EnhancementSession session=new EnhancementSession(root,result,()->{},()->engine,8000);
         session.start();await(result.ready);
         AtomicReference<Throwable> failure=new AtomicReference<>();AtomicInteger snapshots=new AtomicInteger(),liveSnapshots=new AtomicInteger();
-        Thread observer=new Thread(()->{
+        Runnable observe=()->{
             try {
                 while(result.done.getCount()!=0) {
                     Map<String,Object> stats=session.statistics();
                     long queued=number(stats,"queued_input_samples");
                     require(queued>=0&&queued<=8000,"Live queue escaped its bound");
-                    require(((Number)stats.get("process_p50_ms")).doubleValue()>=0,"Negative live percentile");
-                    require(((Number)stats.get("process_p95_ms")).doubleValue()>=0,"Negative live percentile");
-                    snapshots.incrementAndGet();if(number(stats,"model_calls")>0)liveSnapshots.incrementAndGet();
+                    long calls=number(stats,"model_calls");
+                    double total=decimal(stats,"process_total_ms"),mean=decimal(stats,"process_mean_ms");
+                    double p50=decimal(stats,"process_p50_ms"),p95=decimal(stats,"process_p95_ms"),max=decimal(stats,"process_max_ms");
+                    require(number(stats,"model_input_samples")==calls*800,"Call count published before its input accounting");
+                    require(Math.abs(mean*calls-total)<1e-8,"Mixed completed-call timing snapshots");
+                    require(number(stats,"deadline_misses")<=calls,"Deadline count exceeds completed calls");
+                    if(calls==0)require(total==0&&p50==0&&p95==0&&max==0,"Uncompleted call leaked timing");
+                    else {
+                        require(mean>0&&p50>0&&p95>=p50&&max>=p95,"Incomplete live timing history");
+                        require(total>=max&&mean<=max,"Timing totals disagree with completed history");
+                        liveSnapshots.incrementAndGet();
+                    }
+                    snapshots.incrementAndGet();
                 }
             }catch(Throwable error){failure.set(error);}
-        },"session-statistics-observer");
-        observer.start();
-        int samples=64000;
+        };
+        Thread observer=new Thread(observe,"session-statistics-observer");
+        Thread secondObserver=new Thread(observe,"session-statistics-observer-2");
+        observer.start();secondObserver.start();
+        int samples=320000;
         for(int offset=0;offset<samples;offset+=1600) {
             while(number(session.statistics(),"queued_input_samples")>6400)Thread.sleep(1);
             require(session.accept16kS16LE(input(1600),offset),"Concurrent snapshot test input rejected");
         }
-        session.finish();await(result.done);observer.join(10000);
-        require(!observer.isAlive(),"Statistics observer did not stop");
+        session.finish();await(result.done);observer.join(10000);secondObserver.join(10000);
+        require(!observer.isAlive()&&!secondObserver.isAlive(),"Statistics observer did not stop");
         if(failure.get()!=null)throw new AssertionError("Concurrent statistics failed",failure.get());
         require(snapshots.get()>0&&liveSnapshots.get()>0,"No running-call statistics observed");
         require(result.error==null,"Concurrent observation changed session outcome");

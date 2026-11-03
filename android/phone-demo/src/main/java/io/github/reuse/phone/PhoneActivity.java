@@ -27,6 +27,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.core.content.FileProvider;
+import io.github.reuse.RecommendedCpuProfile;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -47,7 +48,8 @@ public final class PhoneActivity extends Activity {
     private TextView stateTitle, stateDetail, timer, route, inputCount, performance, comparisonDetail, playbackDetail;
     private Button start, stop, before, after, stopPlayback, share;
     private Button shareDiagnostics;
-    private RadioButton twoThreads, fourThreads;
+    private RadioButton oneThread, twoThreads, fourThreads;
+    private int lastComparisonThreads = RecommendedCpuProfile.DEFAULT_THREADS;
     private RadioButton cpuMode, gpuFp32, gpuFp16, qnnMode, quantizedCpuMode;
     private TextView backendStatus;
     private ProgressBar level;
@@ -169,6 +171,10 @@ public final class PhoneActivity extends Activity {
             margin(content, label("Experimental GPU + CPU processing. Device performance and FP16 audio quality are unverified.", 14, MINT, true), 10, 0);
         if (BuildConfig.QNN_EXPERIMENTAL)
             margin(content, label("Experimental: partially quantized convolutions. QNN delegates supported work to the NPU, with CPU for remaining work. Audio quality is unverified.", 14, MINT, true), 10, 0);
+        if (!BuildConfig.GPU_EXPERIMENTAL && !BuildConfig.QNN_EXPERIMENTAL) {
+            margin(content, label("Recommended CPU profile · FP32", 15, MINT, true), 12, 0);
+            margin(content, label("Causal 8 kHz model · exit 3 · 100 ms chunks. Microphone capture and saved audio are 16 kHz; enhancement uses the 8 kHz model.", 13, MUTED, false), 5, 0);
+        }
         margin(content, label("Record your voice. Compare the original with RE-USE enhancement, processed on this phone.", 16, MUTED, false), 12, 22);
 
         LinearLayout capture = card();
@@ -221,18 +227,31 @@ public final class PhoneActivity extends Activity {
             RadioGroup backends = new RadioGroup(this);
             backends.setOrientation(RadioGroup.VERTICAL);
             cpuMode = backendChoice("CPU · original FP32", backends);
-            quantizedCpuMode = backendChoice("CPU · quantized convolutions", backends);
+            quantizedCpuMode = backendChoice("CPU · quantized convolutions · 1 thread", backends);
             qnnMode = backendChoice("QNN NPU + CPU · quantized convolutions", backends);
             cpuMode.setChecked(true);
             capture.addView(backends);
             backendStatus = label("Original FP32 CPU model selected", 13, MUTED, false);
             margin(capture, backendStatus, 5, 8);
-            backends.setOnCheckedChangeListener((group, checked) -> updateBackendStatus(false,
-                    qnnMode.isChecked(), quantizedCpuMode.isChecked(), false));
+            backends.setOnCheckedChangeListener((group, checked) -> {
+                updateThreadChoices();
+                updateBackendStatus(false, qnnMode.isChecked(), quantizedCpuMode.isChecked(), false);
+                updateControls();
+            });
             margin(capture, label("QNN verifies NPU execution during warm-up before opening the microphone. CPU is selectable separately. Diagnostics include queue, drops and model timing.", 12, MUTED, false), 0, 8);
         }
         RadioGroup threads = new RadioGroup(this);
         threads.setOrientation(RadioGroup.HORIZONTAL);
+        if (BuildConfig.QNN_EXPERIMENTAL) {
+            oneThread = new RadioButton(this);
+            oneThread.setId(View.generateViewId());
+            oneThread.setText("1 CPU thread · required for quantized CPU");
+            oneThread.setTextColor(INK); oneThread.setTextSize(14);
+            oneThread.setButtonTintList(android.content.res.ColorStateList.valueOf(MINT));
+            oneThread.setMinimumHeight(dp(48));
+            oneThread.setEnabled(false);
+            threads.addView(oneThread, new LinearLayout.LayoutParams(-1, -2));
+        }
         twoThreads = new RadioButton(this);
         fourThreads = new RadioButton(this);
         twoThreads.setId(View.generateViewId()); fourThreads.setId(View.generateViewId());
@@ -244,9 +263,15 @@ public final class PhoneActivity extends Activity {
             choice.setMinimumHeight(dp(48));
             threads.addView(choice, new LinearLayout.LayoutParams(0, -2, 1));
         }
-        if (BuildConfig.QNN_EXPERIMENTAL) twoThreads.setChecked(true);
+        if (BuildConfig.QNN_EXPERIMENTAL) {
+            lastComparisonThreads = 2;
+            twoThreads.setChecked(true);
+        }
         else fourThreads.setChecked(true);
         capture.addView(threads);
+        updateThreadChoices();
+        if (BuildConfig.QNN_EXPERIMENTAL)
+            margin(capture, label("Quantized CPU uses one thread. Higher thread counts failed the numerical consistency check; audio quality still needs evaluation.", 12, MUTED, false), 6, 0);
 
         LinearLayout comparison = card();
         margin(content, comparison, 18, 0);
@@ -267,11 +292,9 @@ public final class PhoneActivity extends Activity {
         share = button("Share both WAV files", false);
         share.setOnClickListener(v -> shareRecording());
         margin(comparison, share, 14, 0, fullButton());
-        if (BuildConfig.GPU_EXPERIMENTAL || BuildConfig.QNN_EXPERIMENTAL) {
-            shareDiagnostics = button("Share diagnostics (no audio)", false);
-            shareDiagnostics.setOnClickListener(v -> shareDiagnostics());
-            margin(comparison, shareDiagnostics, 9, 0, fullButton());
-        }
+        shareDiagnostics = button("Share diagnostics (no audio)", false);
+        shareDiagnostics.setOnClickListener(v -> shareDiagnostics());
+        margin(comparison, shareDiagnostics, 9, 0, fullButton());
 
         margin(content, label("Recording stops when you leave this screen. Audio stays on this phone. Playback is available after recording, to avoid microphone feedback.", 13, MUTED, false), 20, 0);
         margin(content, label("Unofficial, noncommercial research demo using NVIDIA RE-USE.", 12, MUTED, false), 15, 0);
@@ -352,7 +375,7 @@ public final class PhoneActivity extends Activity {
         timer.setText("00:00 / 01:00"); inputCount.setText("0 audio samples"); level.setProgress(0);
         updateControls();
         try {
-            controller.start(twoThreads.isChecked() ? 2 : 4,
+            controller.start(oneThread != null && oneThread.isChecked() ? 1 : twoThreads.isChecked() ? 2 : RecommendedCpuProfile.DEFAULT_THREADS,
                     BuildConfig.GPU_EXPERIMENTAL && !cpuMode.isChecked(),
                     BuildConfig.GPU_EXPERIMENTAL && gpuFp16.isChecked(),
                     BuildConfig.QNN_EXPERIMENTAL && qnnMode.isChecked(),
@@ -385,7 +408,9 @@ public final class PhoneActivity extends Activity {
         if (start == null) return;
         start.setEnabled(!active);
         stop.setEnabled(active && !"STOPPING".equals(phase));
-        twoThreads.setEnabled(!active); fourThreads.setEnabled(!active);
+        boolean quantizedCpuSelected = quantizedCpuMode != null && quantizedCpuMode.isChecked();
+        twoThreads.setEnabled(!active && !quantizedCpuSelected);
+        fourThreads.setEnabled(!active && !quantizedCpuSelected);
         if (cpuMode != null) {
             cpuMode.setEnabled(!active);
             if (gpuFp32 != null) {
@@ -418,12 +443,26 @@ public final class PhoneActivity extends Activity {
             if (backendStatus != null) backendStatus.setText(qnnRequested
                     ? acceleratorExecuted ? "QNN + CPU execution verified during warm-up"
                             : "QNN selected · NPU execution must pass warm-up before recording"
-                    : quantizedCpuRequested ? "Quantized convolutions on CPU · remaining model stays FP32"
+                    : quantizedCpuRequested ? "Quantized convolutions on CPU · 1 thread · remaining model stays FP32"
                             : "Original FP32 CPU model selected");
             return;
         }
         if (backendStatus != null) backendStatus.setText(GpuUiPolicy.backendStatus(
                 gpuProbeComplete, gpuAvailable, gpuAvailabilityMessage, gpuRequested, acceleratorExecuted));
+    }
+
+    private void updateThreadChoices() {
+        if (oneThread == null || twoThreads == null || fourThreads == null) return;
+        boolean quantized = quantizedCpuMode.isChecked();
+        if (quantized) {
+            if (!oneThread.isChecked()) lastComparisonThreads = twoThreads.isChecked() ? 2 : 4;
+            oneThread.setChecked(true);
+        } else if (oneThread.isChecked()) {
+            (lastComparisonThreads == 2 ? twoThreads : fourThreads).setChecked(true);
+        }
+        oneThread.setVisibility(quantized ? View.VISIBLE : View.GONE);
+        twoThreads.setVisibility(quantized ? View.GONE : View.VISIBLE);
+        fourThreads.setVisibility(quantized ? View.GONE : View.VISIBLE);
     }
 
     private void showFailure(String message) {
@@ -544,7 +583,7 @@ public final class PhoneActivity extends Activity {
     }
 
     private void rememberDiagnostics(File directory) {
-        if (!(BuildConfig.GPU_EXPERIMENTAL || BuildConfig.QNN_EXPERIMENTAL) || !validDiagnostics(directory)) return;
+        if (!validDiagnostics(directory)) return;
         latestDiagnostics = directory;
         getPreferences(MODE_PRIVATE).edit().putString("last_diagnostics", directory.getName()).apply();
     }
@@ -570,7 +609,7 @@ public final class PhoneActivity extends Activity {
                 files.add(FileProvider.getUriForFile(this, getPackageName() + ".files", new File(probe, "gpu-probe.json")));
             Intent send = new Intent(Intent.ACTION_SEND_MULTIPLE).setType("application/json")
                     .putParcelableArrayListExtra(Intent.EXTRA_STREAM, files)
-                    .putExtra(Intent.EXTRA_SUBJECT, "RE-USE experimental demo diagnostics (no audio)")
+                    .putExtra(Intent.EXTRA_SUBJECT, "RE-USE demo diagnostics (no audio)")
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             ClipData clip = ClipData.newRawUri("RE-USE processing statistics", files.get(0));
             for (int i = 1; i < files.size(); i++) clip.addItem(new ClipData.Item(files.get(i)));
@@ -596,7 +635,7 @@ public final class PhoneActivity extends Activity {
     @Override protected void onStop() {
         visible = false; permissionStartPending = false;
         releasePlayer();
-        if (controller != null && controller.isActive()) controller.stop();
+        if (controller != null && controller.isActive()) controller.stop("background");
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         super.onStop();
     }

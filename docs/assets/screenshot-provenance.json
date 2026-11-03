@@ -1,7 +1,7 @@
 {
   "source": "Actual APK screen capture, Android35 x86_64 emulator, idle ready state, no microphone opened",
-  "apk_sha256": "eca2ffde807aa18b340c1cec87a027c8ae1be082634cafdb65736502d4e5b37c",
-  "screenshot_sha256": "2cd68231d1a4f1a49a34d4bd4554a8d7fb0b06d21f4ae1b018caaeae35cbe8be",
+  "apk_sha256": "e7075bf052a3c046bd78da306ba0b28752a2890232c4b767d558c816151b5f7a",
+  "screenshot_sha256": "d4a76171dd45cc6145022eee23084c1412509aff333c52b9410501c855a069ee",
   "ui_unofficial_label_verified": true,
   "nonaffiliation_text_verified": true,
   "dimensions": [
@@ -11,5 +11,8 @@
   "editing": "None; copied original screenshot bytes",
   "performance_evidence": false,
   "private_account_or_token_visible": false,
-  "ui_notification_overlay_visible": false
+  "ui_notification_overlay_visible": false,
+  "app_version": "0.8.0-cpu-demo-preview1",
+  "recommended_profile_visible": true,
+  "default_four_threads_verified": true
 }

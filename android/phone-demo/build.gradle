@@ -25,6 +25,10 @@ def copyPhoneAssets = tasks.register('copyPhoneAssets', Sync) {
         include 'model.onnx', 'manifest.json', 'LICENSE-NVIDIA.txt'
         into 'model'
     }
+    from(file("notices/onnxruntime-${gpuExperimental ? '1.23.2' : '1.29.0'}-ThirdPartyNotices.txt")) {
+        rename { 'ONNXRuntime-ThirdPartyNotices.txt' }
+        into 'reuse-phone-notices'
+    }
     if (gpuExperimental) {
         from(rootProject.file('.research/ort-gpu-build/runtime-provenance.json')) { into 'gpu-runtime' }
     }
@@ -51,8 +55,8 @@ android {
         applicationId qnnExperimental ? 'io.github.reuse.phone.qnn' : gpuExperimental ? 'io.github.reuse.phone.gpu' : 'io.github.reuse.phone'
         minSdk ((gpuExperimental || qnnExperimental) ? 29 : 26)
         targetSdk 35
-        versionCode qnnExperimental ? 1 : gpuExperimental ? 4 : 2
-        versionName qnnExperimental ? '0.4.0-qnn-mic-preview1' : gpuExperimental ? '0.2.0-gpu-preview2' : '0.1.1'
+        versionCode qnnExperimental ? 1 : gpuExperimental ? 4 : 8
+        versionName qnnExperimental ? '0.4.0-qnn-mic-preview1' : gpuExperimental ? '0.2.0-gpu-preview2' : '0.8.0-cpu-demo-preview1'
         manifestPlaceholders = [demoLabel: qnnExperimental ? 'RE-USE QNN Demo (Unofficial)' : gpuExperimental ? 'RE-USE GPU Preview (Unofficial)' : 'RE-USE Demo (Unofficial)']
         buildConfigField 'boolean', 'GPU_EXPERIMENTAL', gpuExperimental.toString()
         buildConfigField 'boolean', 'QNN_EXPERIMENTAL', qnnExperimental.toString()
@@ -82,4 +86,5 @@ dependencies {
     if (qnnExperimental) implementation project(':reuse-audio-qnn')
     implementation 'androidx.core:core:1.13.1'
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
 }

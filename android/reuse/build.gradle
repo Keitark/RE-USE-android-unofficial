@@ -4,12 +4,12 @@ plugins {
 }
 
 group = 'io.github.reuse'
-version = '0.1.0-SNAPSHOT'
+version = '0.1.1-SNAPSHOT'
 
-// Optional ARM opcode candidates. Packaged performance receipts record the
-// selected flags; omitted properties retain the original arithmetic paths.
-def reuseNeonFma = providers.gradleProperty('reuseNeonFma').getOrElse('false')
-def reuseScanRegisters = providers.gradleProperty('reuseScanN16Registers').getOrElse('false')
+// The recommended Android CPU build uses the validated ARM arithmetic paths.
+// Explicit false overrides retain the earlier paths for controlled comparisons.
+def reuseNeonFma = providers.gradleProperty('reuseNeonFma').getOrElse('true')
+def reuseScanRegisters = providers.gradleProperty('reuseScanN16Registers').getOrElse('true')
 def gpuExperimental = providers.gradleProperty('reuseGpuExperimental').getOrElse('false') == 'true'
 if (!(reuseNeonFma in ['true', 'false']) || !(reuseScanRegisters in ['true', 'false'])) {
     throw new GradleException('RE-USE opcode properties must be true or false')
@@ -48,7 +48,7 @@ android {
 dependencies {
     api(gpuExperimental
             ? 'com.microsoft.onnxruntime:onnxruntime-android-gpuonly:1.23.2-reuse-gpuonly1'
-            : 'com.microsoft.onnxruntime:onnxruntime-android:1.23.2')
+            : 'com.microsoft.onnxruntime:onnxruntime-android:1.29.0')
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20240303'
 }

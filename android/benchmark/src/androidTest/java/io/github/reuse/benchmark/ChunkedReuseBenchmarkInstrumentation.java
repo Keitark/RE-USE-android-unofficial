@@ -8,6 +8,7 @@ import android.os.Debug;
 import android.util.Log;
 import io.github.reuse.ReuseConfig;
 import io.github.reuse.ChunkedReuseEnhancer;
+import io.github.reuse.RuntimeBuildInfo;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -121,6 +122,8 @@ public final class ChunkedReuseBenchmarkInstrumentation extends Instrumentation 
         report.put("abi", Build.SUPPORTED_ABIS[0]);
         report.put("api_level", Build.VERSION.SDK_INT);
         report.put("onnxruntime_version", ai.onnxruntime.OrtEnvironment.getEnvironment().getVersion());
+        report.put("ort_runtime_build_info", RuntimeBuildInfo.read());
+        report.put("native_kernel_build_info", new JSONObject(RuntimeBuildInfo.kernelBuildInfo()));
         report.put("sample_rate", rate);
         report.put("exit_layers", config.exitLayers);
         report.put("intra_op_threads", config.intraOpThreads);

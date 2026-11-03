@@ -1,12 +1,12 @@
 plugins { id 'com.android.application' }
 
-// The optional adapters select ORT 1.29; stable CPU applications keep ORT 1.23.
+// The optional adapters and recommended CPU applications use ORT 1.29.
 def probeAssetsSource = rootProject.file(providers.gradleProperty('reuseQnnProbeAssets')
         .getOrElse('.research/full-gpu-assets'))
 def probeNoticesSource = rootProject.file('docs/licenses/qnn')
 def generatedAssets = layout.buildDirectory.dir('generated/qnnProbeAssets')
-def reuseNeonFma = providers.gradleProperty('reuseNeonFma').getOrElse('false')
-def reuseScanRegisters = providers.gradleProperty('reuseScanN16Registers').getOrElse('false')
+def reuseNeonFma = providers.gradleProperty('reuseNeonFma').getOrElse('true')
+def reuseScanRegisters = providers.gradleProperty('reuseScanN16Registers').getOrElse('true')
 def copyQnnProbeAssets = tasks.register('copyQnnProbeAssets', Sync) {
     inputs.dir(probeAssetsSource)
     inputs.dir(probeNoticesSource)

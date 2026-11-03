@@ -12,6 +12,15 @@ public final class RuntimeBuildInfo {
         return nativeRuntimeBuildInfo();
     }
 
+    /**
+     * JSON identity of the loaded custom-kernel library's compiled capabilities.
+     * Build flags do not prove a particular kernel executed or establish numerical parity.
+     */
+    public static String kernelBuildInfo() {
+        System.loadLibrary("reuse_ort_ops");
+        return nativeKernelBuildInfo();
+    }
+
     /** Enumerates NNAPI device descriptors as "numeric device type\tname", without inference. */
     public static String[] nnapiDevices() {
         System.loadLibrary("reuse_ort_ops");
@@ -19,5 +28,6 @@ public final class RuntimeBuildInfo {
     }
 
     private static native String nativeRuntimeBuildInfo();
+    private static native String nativeKernelBuildInfo();
     private static native String[] nativeNnapiDevices();
 }

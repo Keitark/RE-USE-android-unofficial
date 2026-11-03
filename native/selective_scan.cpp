@@ -28,7 +28,8 @@ namespace {
 
 #if defined(REUSE_NEON)
 // Optional opcode experiment. Default expansion exactly retains the existing
-// separate float multiply/add rounding. Explicit FMA is never enabled by default.
+// separate float multiply/add rounding. Android's recommended build enables FMA;
+// standalone CMake retains the earlier default for controlled host comparisons.
 #if defined(REUSE_NEON_FMA) && REUSE_NEON_FMA
 #define REUSE_NEON_MULADD(a,b,c) vfmaq_f32((c),(a),(b))
 #define REUSE_NEON_ACCUM(c,a,b) vfmaq_f32((c),(a),(b))

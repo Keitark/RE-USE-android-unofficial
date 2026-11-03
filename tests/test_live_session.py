@@ -45,7 +45,8 @@ public final class ChunkedReuseEnhancer {
     classes = BUILD / "classes"
     classes.mkdir(exist_ok=True)
     production = ROOT / "android/reuse-audio/src/main/java/io/github/reuse/live"
-    run([javac, "-d", str(classes), str(ROOT / "android/reuse/src/main/java/io/github/reuse/ReuseConfig.java"), str(stubs / "ChunkedReuseEnhancer.java"),
+    run([javac, "-d", str(classes), str(ROOT / "android/reuse/src/main/java/io/github/reuse/ReuseConfig.java"),
+         str(ROOT / "android/reuse/src/main/java/io/github/reuse/RecommendedCpuProfile.java"), str(stubs / "ChunkedReuseEnhancer.java"),
          str(production / "FirResampler.java"), str(production / "EnhancementSession.java"),
          str(ROOT / "tests/live/SessionHarness.java"), str(ROOT / "tests/live/PublicEngineFactoryHarness.java")])
     native = BUILD / "native" / ("Release" if os.name == "nt" else "")

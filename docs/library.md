@@ -39,7 +39,8 @@ dependencies {
 
 Use the adapter guides' native extraction settings and preserve component
 notices. The QNN adapters target compatible ARM64 Qualcomm devices on API 29+.
-The default CPU-only dependency example below continues to use ORT 1.23.2.
+The ordinary CPU dependency below uses ORT 1.29.0. The legacy experimental
+GPU-only runtime is separately pinned to its patched ORT 1.23.2 build.
 
 ## Build and consume
 
@@ -70,7 +71,7 @@ dependency:
 ```kotlin
 dependencies {
     implementation(files("libs/reuse-audio-release.aar", "libs/reuse-release.aar"))
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.23.2")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.29.0")
 }
 ```
 
@@ -79,6 +80,13 @@ RE-USE custom operations, and ONNX Runtime is resolved separately. Model
 weights are not bundled in either AAR. Prepare the matching model directory
 as described in the [phone build guide](phone-demo.md#build-from-source), and
 copy its files into app-private storage during application setup.
+
+Use [`RecommendedCpuProfile`](recommended-cpu-profile.md) for the suggested
+8 kHz / exit 3 / FP32 / four-thread configuration and its expected graph hash.
+It selects settings; it does not download or implicitly approve arbitrary
+weights. The generic `ReuseConfig` constructors retain their earlier defaults.
+Normal Android builds now enable the tested ARM FMA/register-scan settings;
+explicit `false` properties remain available for controlled comparisons.
 
 ## Process a 16 kHz PCM stream
 

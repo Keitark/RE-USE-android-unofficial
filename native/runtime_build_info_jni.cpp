@@ -10,6 +10,61 @@
 #include "onnxruntime_c_api.h"
 
 extern "C" JNIEXPORT jstring JNICALL
+Java_io_github_reuse_RuntimeBuildInfo_nativeKernelBuildInfo(JNIEnv* env, jclass) {
+#if defined(__aarch64__)
+  const char* architecture = "aarch64";
+#elif defined(__x86_64__) || defined(_M_X64)
+  const char* architecture = "x86_64";
+#elif defined(__arm__)
+  const char* architecture = "arm";
+#else
+  const char* architecture = "unknown";
+#endif
+#if !defined(REUSE_EXACT_EXP) && defined(__aarch64__)
+  const char* simd = "neon";
+#elif !defined(REUSE_EXACT_EXP) && (defined(_M_X64) || defined(__SSE2__))
+  const char* simd = "sse2";
+#else
+  const char* simd = "scalar";
+#endif
+#if defined(REUSE_NEON_FMA) && REUSE_NEON_FMA
+  const char* fma_option = "true";
+#else
+  const char* fma_option = "false";
+#endif
+#if !defined(REUSE_EXACT_EXP) && defined(__aarch64__) && defined(REUSE_NEON_FMA) && REUSE_NEON_FMA
+  const char* fma_compiled = "true";
+#else
+  const char* fma_compiled = "false";
+#endif
+#if defined(REUSE_SCAN_N16_REGISTERS) && REUSE_SCAN_N16_REGISTERS
+  const char* registers = "true";
+#else
+  const char* registers = "false";
+#endif
+#if defined(REUSE_EXACT_EXP)
+  const char* exact_exp = "true";
+#else
+  const char* exact_exp = "false";
+#endif
+#if defined(REUSE_SCAN_CHANNEL_GRAIN)
+  constexpr int grain = REUSE_SCAN_CHANNEL_GRAIN;
+#else
+  constexpr int grain = 16;
+#endif
+  // Every value is a compile-time constant; no path, device ID or user data is read.
+  const std::string json = std::string("{\"schema_version\":1,\"architecture\":\"") + architecture +
+      "\",\"simd_implementation\":\"" + simd +
+      "\",\"neon_fma_build_option\":" + fma_option +
+      ",\"neon_fma_compiled\":" + fma_compiled +
+      ",\"rank16_register_scan_compiled\":" + registers +
+      ",\"exact_exp_build_option\":" + exact_exp +
+      ",\"scan_channel_grain\":" + std::to_string(grain) +
+      ",\"scope\":\"Compiled kernel capabilities; not per-call execution verification\"}";
+  return env->NewStringUTF(json.c_str());
+}
+
+extern "C" JNIEXPORT jstring JNICALL
 Java_io_github_reuse_RuntimeBuildInfo_nativeRuntimeBuildInfo(JNIEnv* env, jclass) {
   // Java initializes ORT before calling us. Read the already loaded runtime,
   // rather than loading an arbitrary library from a caller-provided path.

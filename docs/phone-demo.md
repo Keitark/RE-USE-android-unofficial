@@ -7,13 +7,15 @@ G2 glasses, Bluetooth connection, login, or cloud audio service is required.
 
 An experimental, separately packaged [QNN/CPU comparison demo](qnn-hybrid.md)
 adds original FP32 CPU, partially quantized CPU, and hybrid NPU + CPU choices.
-The stable APK described below retains its original CPU backend.
+The ordinary APK described below uses the
+[recommended FP32 CPU profile](recommended-cpu-profile.md). Accelerator modes
+remain opt-in experiments in separate packages.
 
 ## Install and run
 
 Download `reuse-phone-demo.apk` from the
-[v0.1.1-preview1 research release](https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.1.1-preview1),
-or use the [direct APK link](https://github.com/Keitark/RE-USE-android-unofficial/releases/download/v0.1.1-preview1/reuse-phone-demo.apk).
+[v0.8.0-cpu-demo-preview1 research release](https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.8.0-cpu-demo-preview1),
+or use the [direct APK link](https://github.com/Keitark/RE-USE-android-unofficial/releases/download/v0.8.0-cpu-demo-preview1/reuse-phone-demo.apk).
 Compare its SHA-256 with `SHA256SUMS` from that same release before installing.
 The build is debug-signed
 for research evaluation, not a Play Store release. Install it through Android's
@@ -34,6 +36,8 @@ adb install -r reuse-phone-demo.apk
    exclusive; there is no live speaker monitoring.
 5. Use **Share both WAV files** if you want to export the pair. Android asks you
    to choose the destination. The app does not upload recordings automatically.
+6. Use **Share diagnostics (no audio)** to report model/runtime identity,
+   timing, queue and capture information without sharing voice recordings.
 
 Microphone access can be denied and retried. If another app or Android privacy
 settings prevent capture, the demo reports an error. “Before” means the PCM
@@ -48,6 +52,7 @@ microphone hardware channels or bypass the phone's audio processing.
 | Native architectures | `arm64-v8a` and `x86_64`; no 32-bit ARM build |
 | Input | Android `AudioRecord`, 16 kHz, mono, PCM16 |
 | Enhancement | CPU, 8 kHz streaming model, five-hop / 100 ms calls |
+| Recommended configuration | FP32, exit 3, four CPU threads, ORT 1.29.0; tested ARM FMA/register-scan paths |
 | Output | Mono 16 kHz PCM16 WAV |
 | Permission | `RECORD_AUDIO`, requested when starting a recording |
 | Runtime network | No Internet permission or audio server |
@@ -108,6 +113,13 @@ Each session has its own directory under app-private
 - `phone-capture.json`: requested/actual capture configuration, route, read
   counts, and stop reason.
 
+The updated ordinary CPU app also retains JSON diagnostics when model
+preparation fails before capture. Records identify the requested profile,
+actual ORT version/build and compiled native capabilities when readable;
+missing provenance is retained as unavailable rather than inferred.
+Compiled options are not per-call instruction traces. A background stop is
+identified separately from pressing Stop. JSON sharing excludes the WAVs.
+
 A successful nonempty input of `N` samples produces
 `N + (N % 2) + 188` output samples. The extra samples cover odd-sample padding
 and the finite FIR drain. Model warm-up is not included in the recording.
@@ -166,9 +178,11 @@ After preparing those model files:
 
 The APK is written to
 `android/phone-demo/build/outputs/apk/debug/phone-demo-debug.apk`.
-The optional properties select the ARM arithmetic paths used in the project's
-performance build. Omitting them retains the earlier arithmetic paths and is
-a different build configuration that needs its own timing result.
+The two properties above now match the normal Android defaults. They explicitly
+select the ARM paths used in the performance build. Set both to `false` only
+for a controlled comparison with the earlier arithmetic paths, retaining a
+separate native hash and fresh numerical/timing evidence. Standalone host CMake
+defaults remain unchanged.
 
 The module depends on the reusable `:reuse-audio` library, which exposes the
 shared `EnhancementSession` and `FirResampler` and depends on the core `:reuse`
@@ -188,6 +202,12 @@ behavior. A new physical phone still needs permission, microphone, stop/drain,
 playback, lifecycle, and sustained-performance checks.
 
 ## Physical phone validation
+
+The following captures are historical results from the original APK, not
+measurements of the ORT 1.29 update. See the
+[current build/check receipt](validation/recommended-cpu-demo.json) and
+[recommended profile](recommended-cpu-profile.md) for the updated artifact's
+actual validation scope.
 
 Two user-started recordings exercised the installed phone demo on a physical
 Xperia 1 IV. Both used the actual built-in microphone, `VOICE_RECOGNITION`,

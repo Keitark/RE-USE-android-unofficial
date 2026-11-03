@@ -1,5 +1,11 @@
 # Benchmark clock, temperature and load diagnostics
 
+The ordinary microphone demo now uses the
+[recommended FP32 CPU configuration](recommended-cpu-profile.md) and exposes
+no-audio diagnostic sharing. The clock/temperature timeline described here
+belongs to the separate compute-test APK; microphone-demo JSON does not imply
+that those sensor timelines or ADB-only system counters were collected.
+
 The `0.7.0-telemetry-probe1` compute-test APK records a timestamped timeline
 alongside the resource comparison and strict neural GPU experiments. Use
 **Share diagnostics (no audio)** to export:

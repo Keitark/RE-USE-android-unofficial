@@ -2,6 +2,7 @@ package io.github.reuse.live;
 
 import io.github.reuse.ChunkedReuseEnhancer;
 import io.github.reuse.ReuseConfig;
+import io.github.reuse.RecommendedCpuProfile;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.io.PrintWriter;
@@ -89,7 +90,7 @@ public final class EnhancementSession implements AutoCloseable {
     /** Initializer runs before ORT creates helper threads (e.g. Android audio priority). */
     public EnhancementSession(Path modelDir, Path outputDir, Path customOpLibrary, Listener listener,
                               Runnable workerInitializer) {
-        this(modelDir, outputDir, customOpLibrary, listener, workerInitializer, 4);
+        this(modelDir, outputDir, customOpLibrary, listener, workerInitializer, RecommendedCpuProfile.DEFAULT_THREADS);
     }
 
     /** Configurable CPU threads; existing constructors retain their four-thread configuration. */
@@ -126,9 +127,12 @@ public final class EnhancementSession implements AutoCloseable {
 
     private static EngineFactory modelFactory(Path modelDir, Path outputDir, Path customOpLibrary,
                                              int intraOpThreads, ReuseConfig.Backend backend, boolean nnapiUseFp16) {
-        ReuseConfig config = new ReuseConfig(8000, 3, intraOpThreads, backend, nnapiUseFp16,
-                backend == ReuseConfig.Backend.NNAPI_ACCELERATOR && outputDir != null
-                        ? outputDir.resolve("nnapi-warmup") : null);
+        ReuseConfig config = backend == ReuseConfig.Backend.CPU && !nnapiUseFp16
+                ? RecommendedCpuProfile.config(intraOpThreads)
+                : new ReuseConfig(RecommendedCpuProfile.SAMPLE_RATE, RecommendedCpuProfile.EXIT_LAYERS,
+                        intraOpThreads, backend, nnapiUseFp16,
+                        backend == ReuseConfig.Backend.NNAPI_ACCELERATOR && outputDir != null
+                                ? outputDir.resolve("nnapi-warmup") : null);
         return () -> {
             if (backend == ReuseConfig.Backend.NNAPI_ACCELERATOR) Files.createDirectories(outputDir);
             final ChunkedReuseEnhancer e = new ChunkedReuseEnhancer(modelDir.resolve("model.onnx"),
@@ -339,11 +343,18 @@ public final class EnhancementSession implements AutoCloseable {
     private void processChunk(FirResampler up, Engine engine) throws Exception {
         long begin = System.nanoTime(); float[] output = engine.process(modelInput);
         long elapsed = System.nanoTime() - begin;
-        processNs += elapsed; maxProcessNs = Math.max(maxProcessNs, elapsed); calls++;
-        callTimes[(int) calls - 1] = elapsed;
-        if (elapsed > 100_000_000L) deadlineMisses++;
-        modelInputSamples += CHUNK;
-        if (output == null || output.length != (calls == 1 ? 640 : 800)) throw new IOException("Unexpected enhancer output length");
+        final long completedCalls;
+        // Publish one completed timing record atomically to concurrent statistics readers.
+        // Model execution and output conversion stay outside this short critical section.
+        synchronized (lock) {
+            processNs += elapsed; maxProcessNs = Math.max(maxProcessNs, elapsed);
+            callTimes[(int) calls] = elapsed;
+            calls++;
+            if (elapsed > 100_000_000L) deadlineMisses++;
+            modelInputSamples += CHUNK;
+            completedCalls = calls;
+        }
+        if (output == null || output.length != (completedCalls == 1 ? 640 : 800)) throw new IOException("Unexpected enhancer output length");
         emitLow(output, up);
     }
     private void emitLow(float[] values, FirResampler up) throws Exception {

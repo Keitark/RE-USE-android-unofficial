@@ -36,7 +36,8 @@ model with its complete NVIDIA license. AARs do not bundle model weights.
 
 ## ONNX Runtime
 
-Android dependency: `com.microsoft.onnxruntime:onnxruntime-android:1.23.2`.
+Ordinary CPU and QNN Android dependency:
+`com.microsoft.onnxruntime:onnxruntime-android:1.29.0`.
 MIT license. Source: https://github.com/microsoft/onnxruntime
 The runtime dependency is resolved separately by Gradle, not shaded into the
 library AAR. Its distribution includes its own third-party notices.
