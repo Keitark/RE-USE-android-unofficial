@@ -30,7 +30,9 @@ The native CMake options `REUSE_NEON_FMA` and `REUSE_SCAN_N16_REGISTERS` remain
 OFF unless explicitly selected for a build. The benchmark's combined ARM64
 library enables both. The AAR for this pass was explicitly built with Gradle
 properties `-PreuseNeonFma=true -PreuseScanN16Registers=true`; the properties
-default to false for a new source build. FMA is an ARM-only experiment; Windows SSE2 timing does
+originally defaulted to false. The recommended Android CPU build now enables
+both; standalone CMake host defaults remain off and explicit Gradle `false`
+overrides preserve the earlier path for comparison. FMA is ARM-specific; Windows SSE2 timing does
 not measure the ARM FMLA path. The existing code already uses NEON on arm64;
 this pass changes its work and instructions. Arm documents the four-lane FP32
 FMLA intrinsic in its [Advanced SIMD reference](https://arm-software.github.io/acle/neon_intrinsics/advsimd.html),

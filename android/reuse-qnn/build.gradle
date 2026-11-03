@@ -1,0 +1,67 @@
+plugins {
+    id 'com.android.library'
+    id 'maven-publish'
+}
+
+group = 'io.github.reuse'
+version = '0.1.0-SNAPSHOT'
+
+def noticesSource = rootProject.file('docs/licenses/qnn')
+def generatedAssets = layout.buildDirectory.dir('generated/qnnNotices')
+def copyNotices = tasks.register('copyQnnBackendNotices', Sync) {
+    inputs.dir(noticesSource)
+    into(generatedAssets)
+    from(noticesSource) { into 'reuse-qnn-notices' }
+}
+
+android {
+    namespace 'io.github.reuse.qnn'
+    compileSdk 35
+    defaultConfig {
+        minSdk 29
+        ndk { abiFilters 'arm64-v8a' }
+        buildConfigField 'String', 'QNN_EP_VERSION', '"2.7.0"'
+        buildConfigField 'String', 'QNN_RUNTIME_VERSION', '"2.51.0"'
+    }
+    buildFeatures { buildConfig true }
+    sourceSets { main { assets.srcDir generatedAssets } }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    publishing { singleVariant('release') { withSourcesJar() } }
+}
+
+tasks.named('preBuild').configure { dependsOn(copyNotices) }
+
+dependencies {
+    api project(':reuse')
+    api('com.microsoft.onnxruntime:onnxruntime-android:1.29.0') { version { strictly '1.29.0' } }
+    implementation('com.qualcomm.qti:onnxruntime-android-qnn:2.7.0') { version { strictly '2.7.0' } }
+    implementation('com.qualcomm.qti:qnn-runtime:2.51.0') { version { strictly '2.51.0' } }
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                from components.release
+                artifactId = 'reuse-android-qnn'
+                pom {
+                    name = 'RE-USE Android QNN adapter'
+                    description = 'Optional MIT Java adapter for QNN HTP. Qualcomm runtime remains subject to its AI Stack License; RE-USE model and model-specific native code retain NVIDIA NSCLv1 restrictions. Vendor runtime dependencies are resolved from Maven, not shaded into this AAR.'
+                    licenses {
+                        license {
+                            name = 'MIT (adapter Java source only)'
+                            url = 'https://opensource.org/license/mit/'
+                            distribution = 'repo'
+                        }
+                    }
+                }
+            }
+        }
+        repositories { maven { url = uri(rootProject.layout.buildDirectory.dir('repository')) } }
+    }
+}

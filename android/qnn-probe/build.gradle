@@ -1,0 +1,71 @@
+plugins { id 'com.android.application' }
+
+// The optional adapters and recommended CPU applications use ORT 1.29.
+def probeAssetsSource = rootProject.file(providers.gradleProperty('reuseQnnProbeAssets')
+        .getOrElse('.research/full-gpu-assets'))
+def probeNoticesSource = rootProject.file('docs/licenses/qnn')
+def generatedAssets = layout.buildDirectory.dir('generated/qnnProbeAssets')
+def reuseNeonFma = providers.gradleProperty('reuseNeonFma').getOrElse('true')
+def reuseScanRegisters = providers.gradleProperty('reuseScanN16Registers').getOrElse('true')
+def copyQnnProbeAssets = tasks.register('copyQnnProbeAssets', Sync) {
+    inputs.dir(probeAssetsSource)
+    inputs.dir(probeNoticesSource)
+    into(generatedAssets)
+    from(probeAssetsSource) { into 'qnn' }
+    from(probeNoticesSource) { into 'qnn-notices' }
+    doFirst {
+        ['manifest.json', 'reuse_encoder_dilated_conv_u8.onnx',
+         'full-gpu-standard/model.onnx', 'full-gpu-standard/validation.json'].each { name ->
+            if (!new File(probeAssetsSource, name).isFile())
+                throw new GradleException("Missing QNN probe asset ${name}; generate the probe fixtures before building. See docs/qnn-probe.md.")
+        }
+    }
+}
+
+android {
+    namespace 'io.github.reuse.qnnprobe'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'io.github.reuse.qnnprobe'
+        minSdk 29
+        targetSdk 35
+        versionCode 6
+        versionName '0.7.0-telemetry-probe1'
+        buildConfigField 'String', 'ORT_VERSION', '"1.29.0"'
+        buildConfigField 'String', 'QNN_EP_VERSION', '"2.7.0"'
+        buildConfigField 'String', 'QNN_RUNTIME_VERSION', '"2.51.0"'
+        buildConfigField 'boolean', 'REUSE_NEON_FMA', reuseNeonFma
+        buildConfigField 'boolean', 'REUSE_SCAN_N16_REGISTERS', reuseScanRegisters
+        ndk { abiFilters 'arm64-v8a' }
+        externalNativeBuild { cmake { arguments '-DANDROID_STL=c++_static' } }
+    }
+    buildFeatures { buildConfig true }
+    ndkVersion '26.1.10909125'
+    externalNativeBuild { cmake { path file('../../native/resource/CMakeLists.txt'); version '3.22.1' } }
+    sourceSets { main { assets.srcDir generatedAssets } }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    buildTypes { release { minifyEnabled false } }
+    // FastRPC loads the Hexagon Skel files by filesystem path.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+            // Preserve the vendor binaries exactly as supplied in Maven.
+            keepDebugSymbols += ['**/*.so']
+        }
+    }
+}
+
+tasks.named('preBuild').configure { dependsOn(copyQnnProbeAssets) }
+dependencies {
+    implementation project(':reuse-qnn')
+    implementation project(':reuse-audio-qnn')
+    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.29.0'
+    implementation 'com.qualcomm.qti:onnxruntime-android-qnn:2.7.0'
+    implementation 'com.qualcomm.qti:qnn-runtime:2.51.0'
+    implementation 'androidx.core:core:1.13.1'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+}

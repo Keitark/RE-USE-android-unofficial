@@ -1,6 +1,7 @@
 # Licensing and public distribution
 
-Reviewed on **2026-11-01**. This project has mixed licenses. The pinned
+Model license reviewed on **2026-11-01**; component versions updated on
+**2026-11-03**. This project has mixed licenses. The pinned
 [NVIDIA model card](https://huggingface.co/nvidia/Real-time_RE-USE/blob/4c0c186272ca853cd18d832fc5c28777b62f32d1/README.md)
 identifies NSCLv1; the revision and source hashes are recorded in
 [`tools/source-lock.json`](../tools/source-lock.json).
@@ -9,7 +10,12 @@ identifies NSCLv1; the revision and source hashes are recorded in
 |---|---|
 | Independently written Java integration/DSP APIs and phone UI | MIT, with the exceptions in the root [`LICENSE`](../LICENSE) |
 | Checkpoint, exported graphs, adapted model/export/optimization Python, and model-specific native code | NVIDIA NSCLv1; noncommercial research and education only |
-| ONNX Runtime 1.23.2 and its API headers | [MIT](https://github.com/microsoft/onnxruntime/blob/v1.23.2/LICENSE), plus its bundled third-party notices |
+| Ordinary CPU ONNX Runtime 1.29.0 | [MIT](https://github.com/microsoft/onnxruntime/blob/v1.29.0/LICENSE), plus its bundled third-party notices |
+| Retained API-23 headers and legacy GPU runtime based on ORT 1.23.2 | [MIT](https://github.com/microsoft/onnxruntime/blob/v1.23.2/LICENSE), plus the runtime's bundled third-party notices |
+| Optional GPU-only ORT device-filter patch, packaging tools and independent runtime-identity JNI bridge | MIT; upstream runtime license and full third-party notices are retained in the experimental AAR/APK |
+| QNN probe, independent QNN adapters, microphone UI and synthetic test | MIT; ORT 1.29.0 and QNN EP 2.7.0 dependencies carry their own MIT and third-party notices |
+| Qualcomm QNN runtime 2.51.0 in optional QNN APKs | Proprietary Qualcomm AI Stack License; original license and notices are [included](licenses/qnn/README.md) |
+| RE-USE-derived QNN projection/Conv graphs, full model candidates, weights and sample-derived fixtures | NVIDIA NSCLv1; noncommercial research and education |
 | AndroidX Core 1.13.1 | Apache 2.0, as declared in the [official Maven metadata](https://dl.google.com/dl/android/maven2/androidx/core/core/1.13.1/core-1.13.1.pom) |
 
 The native NSCLv1 scope includes `native/selective_scan.cpp`, `native/even/`,

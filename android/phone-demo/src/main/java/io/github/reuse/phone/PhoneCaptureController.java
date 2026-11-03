@@ -15,6 +15,11 @@ import android.os.Looper;
 import android.os.Process;
 import android.os.SystemClock;
 import io.github.reuse.live.EnhancementSession;
+import io.github.reuse.ReuseConfig;
+import io.github.reuse.RecommendedCpuProfile;
+import io.github.reuse.RuntimeBuildInfo;
+import ai.onnxruntime.OrtEnvironment;
+import ai.onnxruntime.OrtException;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,6 +30,7 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -32,6 +38,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 import org.json.JSONObject;
 
 /** Visible-activity capture; no network, Bluetooth, global routing changes or speaker monitoring. */
@@ -42,17 +49,41 @@ public final class PhoneCaptureController implements AutoCloseable {
         void onError(String message);
     }
 
+    /** Optional app adapter; returns an unstarted session and the actual prepared model identity. */
+    @FunctionalInterface
+    public interface SessionFactory {
+        PreparedSession create(Path outputDirectory, int threads, EnhancementSession.Listener listener,
+                               Runnable workerInitializer) throws Exception;
+    }
+
+    public static final class PreparedSession {
+        public final EnhancementSession session;
+        public final String modelSha256;
+
+        public PreparedSession(EnhancementSession session, String modelSha256) {
+            if (session == null || modelSha256 == null || !modelSha256.matches("[a-fA-F0-9]{64}"))
+                throw new IllegalArgumentException("An unstarted session and a 64-character model SHA-256 are required");
+            this.session = session;
+            this.modelSha256 = modelSha256.toLowerCase(Locale.ROOT);
+        }
+    }
+
     public static final class StateSnapshot {
         public final String phase, message, route;
         public final boolean active, processingBehind;
         public final long capturedSamples, modelCalls, deadlineMisses;
         public final int threads;
+        public final boolean gpuRequested, fp16Requested, qnnRequested, quantizedCpuRequested, acceleratorExecuted;
         public final double elapsedSeconds, level, estimatedProcessingRtf, currentQueueMs;
         private StateSnapshot(String phase, String message, boolean active, Run run) {
             this.phase = phase; this.message = message; this.active = active;
             capturedSamples = run.samples; threads = run.threads; route = run.route;
             elapsedSeconds = capturedSamples / 16000.0; level = run.peak;
             Map<String, Object> stats = run.session == null ? new LinkedHashMap<>() : run.session.statistics();
+            gpuRequested = run.gpuRequested; fp16Requested = run.fp16Requested; qnnRequested = run.qnnRequested;
+            quantizedCpuRequested = run.quantizedCpuRequested;
+            acceleratorExecuted = Boolean.TRUE.equals(stats.get("nnapi_execution_verified"))
+                    || Boolean.TRUE.equals(stats.get("qnn_execution_verified"));
             modelCalls = number(stats, "model_calls").longValue();
             deadlineMisses = number(stats, "deadline_misses").longValue();
             // Approximate live model compute, excludes FIR and the in-flight call.
@@ -65,18 +96,29 @@ public final class PhoneCaptureController implements AutoCloseable {
 
     private static final int RATE = 16000, READ_SAMPLES = 800, MAX_SAMPLES = RATE * 60;
     private static final int MAX_OUTPUT_TRACE_EVENTS = 1300;
-    private static final String MODEL_SHA = "f950dcfb9321191b2bcb3ab9afa3e100c40e5c64dd1de1d30849be4c1aacce32";
+    private static final String MODEL_SHA = RecommendedCpuProfile.MODEL_SHA256;
     private final Context context;
     private final Listener listener;
+    private final SessionFactory qnnSessionFactory;
+    private final SessionFactory quantizedCpuFactory;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Object lock = new Object();
     private final ExecutorService preparation = Executors.newSingleThreadExecutor(r -> new Thread(r, "reuse-phone-prepare"));
+    private final ExecutorService gpuProbe = Executors.newSingleThreadExecutor(r -> new Thread(r, "reuse-phone-gpu-probe"));
     private volatile boolean closed;
     private Run active;
     private volatile File latestDirectory;
+    private volatile File latestDiagnosticsDirectory;
+    private volatile GpuAvailability gpuAvailability;
+    private volatile File gpuProbeDiagnosticsDirectory;
 
     private static final class Run {
         final int threads;
+        final boolean gpuRequested, fp16Requested, qnnRequested, quantizedCpuRequested;
+        volatile String modelSha256;
+        volatile String runtimeBuildInfo = "not_read";
+        volatile String runtimeVersion = "not_read", kernelBuildInfo = "not_read", provenanceError = "";
+        volatile GpuAvailability availability;
         final Path directory;
         final Object recorderLock = new Object();
         volatile EnhancementSession session;
@@ -98,19 +140,105 @@ public final class PhoneCaptureController implements AutoCloseable {
         int outputTraceEvents, omittedOutputTraceEvents;
         long callbackOutputSamples;
         Runnable durationStop;
-        Run(int threads, Path directory) { this.threads = threads; this.directory = directory; }
+        Run(int threads, boolean gpuRequested, boolean fp16Requested, boolean qnnRequested,
+            boolean quantizedCpuRequested, Path directory) {
+            this.threads = threads; this.gpuRequested = gpuRequested;
+            this.fp16Requested = fp16Requested; this.qnnRequested = qnnRequested; this.directory = directory;
+            this.quantizedCpuRequested = quantizedCpuRequested;
+            this.modelSha256 = "not_loaded";
+        }
     }
 
     public PhoneCaptureController(Context context, Listener listener) {
+        this(context, listener, null);
+    }
+
+    public PhoneCaptureController(Context context, Listener listener, SessionFactory optionalQnn) {
+        this(context, listener, optionalQnn, null);
+    }
+
+    public PhoneCaptureController(Context context, Listener listener, SessionFactory optionalQnn,
+                                   SessionFactory optionalQuantizedCpu) {
         if (context == null || listener == null) throw new IllegalArgumentException("Context and listener are required");
         this.context = context.getApplicationContext(); this.listener = listener;
+        this.qnnSessionFactory = optionalQnn;
+        this.quantizedCpuFactory = optionalQuantizedCpu;
     }
 
     public boolean isActive() { synchronized (lock) { return active != null; } }
     public File latestDir() { return latestDirectory; }
+    public File diagnosticsDir() { return latestDiagnosticsDirectory; }
+    public File gpuProbeDiagnosticsDir() { return gpuProbeDiagnosticsDirectory; }
+
+    /** Background driver enumeration only; never opens the microphone or runs the model. */
+    public void probeGpuAvailability(Consumer<GpuAvailability> callback) {
+        if (callback == null) throw new IllegalArgumentException("A GPU probe callback is required");
+        synchronized (lock) {
+            if (closed) return;
+            gpuProbe.execute(() -> {
+                String runtime = "not_read";
+                GpuAvailability result;
+                try {
+                    if (!BuildConfig.GPU_EXPERIMENTAL || Build.VERSION.SDK_INT < 29)
+                        throw new IllegalStateException("GPU preview requires its API29+ experimental runtime");
+                    runtime = RuntimeBuildInfo.read();
+                    result = GpuAvailability.fromDevices(runtime, RuntimeBuildInfo.nnapiDevices());
+                } catch (Exception | LinkageError error) {
+                    result = GpuAvailability.unavailable("GPU check unavailable. CPU mode is available; details are saved in diagnostics.",
+                            error.toString(), runtime);
+                }
+                gpuAvailability = result;
+                saveProbeDiagnostics(result);
+                GpuAvailability completed = result;
+                main.post(() -> { if (!closed) callback.accept(completed); });
+            });
+        }
+    }
+
+    private void saveProbeDiagnostics(GpuAvailability result) {
+        try {
+            String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(new Date());
+            Path directory = context.getFilesDir().toPath().resolve("captures")
+                    .resolve(stamp + "-" + UUID.randomUUID().toString().substring(0, 8));
+            Files.createDirectories(directory);
+            Map<String, Object> probe = new LinkedHashMap<>();
+            probe.put("source", "nnapi_device_probe"); probe.put("microphone_started", false);
+            probe.put("app_version", BuildConfig.VERSION_NAME); probe.put("model_sha256", MODEL_SHA);
+            probe.put("gpu_driver_available", result.available); probe.put("message", result.message);
+            probe.put("nnapi_device_descriptions", Arrays.asList(result.deviceDescriptions()));
+            probe.put("ort_runtime_build_info", result.runtimeBuildInfo); probe.put("error", result.error);
+            probe.put("gpu_execution_verified", false); probe.put("gpu_speedup_measured", false);
+            byte[] json = (new JSONObject(probe).toString(2) + "\n").getBytes(StandardCharsets.UTF_8);
+            Files.write(directory.resolve("stats.json"), json);
+            Files.write(directory.resolve("phone-capture.json"), json);
+            Files.write(directory.resolve("gpu-probe.json"), json);
+            synchronized (lock) {
+                gpuProbeDiagnosticsDirectory = directory.toFile();
+                // A slow probe must not replace a completed recording's diagnostics.
+                if (latestDiagnosticsDirectory == null) latestDiagnosticsDirectory = directory.toFile();
+            }
+        } catch (Exception error) {
+            android.util.Log.w("ReuseGpuPreview", "Could not save GPU driver probe diagnostics", error);
+        }
+    }
 
     public void start(int threads) {
-        if (threads != 2 && threads != 4) throw new IllegalArgumentException("Choose 2 or 4 CPU threads");
+        start(threads, false, false);
+    }
+
+    public void start(int threads, boolean gpuRequested, boolean fp16Requested) {
+        start(threads, gpuRequested, fp16Requested, false);
+    }
+
+    public void start(int threads, boolean gpuRequested, boolean fp16Requested, boolean qnnRequested) {
+        start(threads, gpuRequested, fp16Requested, qnnRequested, false);
+    }
+
+    public void start(int threads, boolean gpuRequested, boolean fp16Requested,
+                      boolean qnnRequested, boolean quantizedCpuRequested) {
+        validateRequestedModes(threads, gpuRequested, fp16Requested, qnnRequested, quantizedCpuRequested,
+                BuildConfig.GPU_EXPERIMENTAL, BuildConfig.QNN_EXPERIMENTAL,
+                qnnSessionFactory != null, quantizedCpuFactory != null);
         final Run run;
         synchronized (lock) {
             if (closed) throw new IllegalStateException("Controller is closed");
@@ -119,12 +247,43 @@ public final class PhoneCaptureController implements AutoCloseable {
                 postError("Microphone permission is required. Press Start and allow microphone access."); return;
             }
             String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(new Date());
-            run = new Run(threads, context.getFilesDir().toPath().resolve("captures")
+            run = new Run(threads, gpuRequested, fp16Requested, qnnRequested, quantizedCpuRequested,
+                    context.getFilesDir().toPath().resolve("captures")
                     .resolve(stamp + "-" + UUID.randomUUID().toString().substring(0, 8)));
             active = run;
         }
-        publish(run, "PREPARING", "Preparing RE-USE. The microphone opens when the model is ready.", true);
+        publish(run, "PREPARING", qnnRequested
+                ? "Preparing QNN HTP and CPU processing. The microphone opens only after warm-up verification."
+                : quantizedCpuRequested ? "Preparing the quantized model on CPU. The microphone opens after warm-up."
+                : gpuRequested ? "Preparing GPU layers and checking accelerator execution. The microphone is still closed."
+                : "Preparing RE-USE. The microphone opens when the model is ready.", true);
         preparation.execute(() -> prepare(run));
+    }
+
+    static void validateRequestedModes(int threads, boolean gpuRequested, boolean fp16Requested,
+                                       boolean qnnRequested, boolean gpuBuild, boolean qnnBuild,
+                                       boolean qnnFactoryAvailable) {
+        validateRequestedModes(threads, gpuRequested, fp16Requested, qnnRequested, false,
+                gpuBuild, qnnBuild, qnnFactoryAvailable, false);
+    }
+
+    static void validateRequestedModes(int threads, boolean gpuRequested, boolean fp16Requested,
+                                       boolean qnnRequested, boolean quantizedCpuRequested,
+                                       boolean gpuBuild, boolean qnnBuild, boolean qnnFactoryAvailable,
+                                       boolean quantizedCpuFactoryAvailable) {
+        if (quantizedCpuRequested ? threads != 1 : threads != 2 && threads != 4)
+            throw new IllegalArgumentException(quantizedCpuRequested
+                    ? "Quantized CPU mode requires 1 thread; higher counts failed the numerical consistency check"
+                    : "Choose 2 or 4 CPU threads");
+        if ((gpuRequested ? 1 : 0) + (qnnRequested ? 1 : 0) + (quantizedCpuRequested ? 1 : 0) > 1)
+            throw new IllegalArgumentException("Choose only one GPU, QNN or quantized CPU processing mode");
+        if (gpuRequested && !gpuBuild)
+            throw new IllegalArgumentException("GPU mode requires the separate experimental GPU APK");
+        if (fp16Requested && !gpuRequested) throw new IllegalArgumentException("FP16 relaxation requires GPU mode");
+        if (qnnRequested && (!qnnBuild || !qnnFactoryAvailable))
+            throw new IllegalArgumentException("QNN mode requires the separate experimental QNN APK and its session adapter");
+        if (quantizedCpuRequested && (!qnnBuild || !quantizedCpuFactoryAvailable))
+            throw new IllegalArgumentException("Quantized CPU mode requires the experimental QNN APK and its CPU session adapter");
     }
 
     public void stop() { stop("user_stop"); }
@@ -151,26 +310,64 @@ public final class PhoneCaptureController implements AutoCloseable {
     private void prepare(Run run) {
         try {
             if (cancelBeforeEngine(run)) return;
-            Path model = extractModel();
-            if (cancelBeforeEngine(run)) return;
-            Path custom = new File(context.getApplicationInfo().nativeLibraryDir, "libreuse_ort_ops.so").toPath();
-            if (!Files.isRegularFile(custom)) throw new IOException("The RE-USE native library is unavailable for this device");
-            Files.createDirectories(run.directory);
-            EnhancementSession session = new EnhancementSession(model, run.directory, custom,
-                    new EnhancementSession.Listener() {
-                        @Override public void onReady() { startMicrophone(run); }
-                        @Override public void onAudio(byte[] pcm) { traceOutputAvailability(run, pcm); }
-                        @Override public void onFinished(Map<String, Object> stats) { scheduleTerminal(run, stats, null); }
-                        @Override public void onError(String code, String message, Map<String, Object> stats) {
-                            scheduleTerminal(run, stats, code + ": " + message);
-                        }
-                    }, () -> Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO), run.threads);
+            readRuntimeIdentity(run);
+            EnhancementSession.Listener engineListener = new EnhancementSession.Listener() {
+                @Override public void onReady() { startMicrophone(run); }
+                @Override public void onAudio(byte[] pcm) { traceOutputAvailability(run, pcm); }
+                @Override public void onFinished(Map<String, Object> stats) { scheduleTerminal(run, stats, null); }
+                @Override public void onError(String code, String message, Map<String, Object> stats) {
+                    scheduleTerminal(run, stats, code + ": " + message);
+                }
+            };
+            Runnable initializer = () -> {
+                Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO);
+                try { OrtEnvironment.getEnvironment().setTelemetry(false); }
+                catch (OrtException error) { throw new IllegalStateException("Could not disable ONNX Runtime telemetry", error); }
+            };
+            EnhancementSession session;
+            if (run.qnnRequested || run.quantizedCpuRequested) {
+                Files.createDirectories(run.directory);
+                SessionFactory factory = run.qnnRequested ? qnnSessionFactory : quantizedCpuFactory;
+                PreparedSession prepared = factory.create(run.directory, run.threads, engineListener, initializer);
+                if (prepared == null) throw new IOException("Selected model session adapter did not return a prepared session");
+                run.modelSha256 = prepared.modelSha256;
+                session = prepared.session;
+            } else {
+                Path model = extractModel();
+                run.modelSha256 = MODEL_SHA;
+                if (cancelBeforeEngine(run)) return;
+                Path custom = new File(context.getApplicationInfo().nativeLibraryDir, "libreuse_ort_ops.so").toPath();
+                if (!Files.isRegularFile(custom)) throw new IOException("The RE-USE native library is unavailable for this device");
+                if (BuildConfig.GPU_EXPERIMENTAL) {
+                    run.availability = gpuAvailability;
+                    if (run.gpuRequested && !run.runtimeBuildInfo.contains("REUSE_NNAPI_GPU_ONLY_V1"))
+                        throw new IOException("GPU mode refused: the loaded runtime does not have the GPU-only device filter");
+                    if (run.gpuRequested && run.availability != null && !run.availability.available)
+                        throw new IOException(run.availability.message);
+                }
+                Files.createDirectories(run.directory);
+                session = new EnhancementSession(model, run.directory, custom, engineListener, initializer, run.threads,
+                        run.gpuRequested ? ReuseConfig.Backend.NNAPI_ACCELERATOR : ReuseConfig.Backend.CPU,
+                        run.fp16Requested);
+            }
             synchronized (lock) {
                 if (active != run || run.stopRequested || closed) session.close();
                 else { run.session = session; session.start(); return; }
             }
             cancelBeforeEngine(run);
-        } catch (Exception error) { failPreparation(run, error.toString()); }
+        } catch (Exception | LinkageError error) { failPreparation(run, error); }
+    }
+
+    /** Best-effort provenance, outside measured inference and before microphone access. */
+    private static void readRuntimeIdentity(Run run) {
+        ArrayList<String> errors = new ArrayList<>();
+        try { run.runtimeVersion = OrtEnvironment.getEnvironment().getVersion(); }
+        catch (Exception | LinkageError error) { errors.add("ORT version: " + error); }
+        try { run.runtimeBuildInfo = RuntimeBuildInfo.read(); }
+        catch (Exception | LinkageError error) { errors.add("ORT build: " + error); }
+        try { run.kernelBuildInfo = RuntimeBuildInfo.kernelBuildInfo(); }
+        catch (Exception | LinkageError error) { errors.add("Native kernel build: " + error); }
+        run.provenanceError = String.join("; ", errors);
     }
 
     private boolean cancelBeforeEngine(Run run) {
@@ -357,15 +554,28 @@ public final class PhoneCaptureController implements AutoCloseable {
                 if (capture.isAlive()) throw new IOException("Microphone worker did not stop; capture cannot be marked complete");
             } else run.microphoneReleased = true;
             if (error == null) error = run.captureError;
+            if (run.availability == null) run.availability = gpuAvailability;
             Map<String, Object> phone = captureMetadata(run, engineStats, error == null);
+            phone.put("error", error == null ? "" : error);
+            if (engineStats.get("error_details") instanceof String) phone.put("error_details", engineStats.get("error_details"));
             Map<String, Object> stats = new LinkedHashMap<>(engineStats);
             stats.put("source", "android_audio_record"); stats.put("phone_capture", phone);
+            stats.put("qnn_requested", run.qnnRequested);
+            stats.put("cpu_quantized_requested", run.quantizedCpuRequested);
+            stats.put("model_sha256", run.modelSha256);
+            if (!run.qnnRequested && !run.quantizedCpuRequested) stats.put("expected_model_sha256", MODEL_SHA);
+            stats.put("model_precision_label", modelPrecisionLabel(run.qnnRequested || run.quantizedCpuRequested, run.fp16Requested));
+            stats.putAll(processingIdentity(run));
+            if (run.quantizedCpuRequested) stats.put("requested_backend", "CPU");
             if (error != null) { stats.put("phone_capture_error", error); stats.put("state", "ERROR"); }
             Files.write(run.directory.resolve("phone-capture.json"),
                     (new JSONObject(phone).toString(2) + "\n").getBytes(StandardCharsets.UTF_8));
             Files.write(run.directory.resolve("stats.json"),
                     (new JSONObject(stats).toString(2) + "\n").getBytes(StandardCharsets.UTF_8));
-            synchronized (lock) { if (active == run) active = null; }
+            synchronized (lock) {
+                latestDiagnosticsDirectory = run.directory.toFile();
+                if (active == run) active = null;
+            }
             if (error != null) { publish(run, "ERROR", "Recording stopped: " + error, false); postError(error); }
             else if (run.samples == 0) publish(run, "IDLE", "Stopped before the microphone opened.", false);
             else {
@@ -384,6 +594,27 @@ public final class PhoneCaptureController implements AutoCloseable {
         s.put("source", "android_audio_record"); s.put("session_success", success);
         s.put("requested_sample_rate", RATE); s.put("actual_sample_rate", run.actualRate);
         s.put("channels", 1); s.put("encoding", "s16le"); s.put("model_threads", run.threads);
+        s.put("gpu_experimental_apk", BuildConfig.GPU_EXPERIMENTAL);
+        s.put("qnn_experimental_apk", BuildConfig.QNN_EXPERIMENTAL);
+        s.put("app_version", BuildConfig.VERSION_NAME); s.put("model_sha256", run.modelSha256);
+        if (!run.qnnRequested && !run.quantizedCpuRequested) s.put("expected_model_sha256", MODEL_SHA);
+        s.put("model_precision_label", modelPrecisionLabel(run.qnnRequested || run.quantizedCpuRequested, run.fp16Requested));
+        s.putAll(processingIdentity(run));
+        s.put("requested_backend", run.qnnRequested ? "QNN_HTP" : run.gpuRequested ? "NNAPI_ACCELERATOR" : "CPU");
+        if (run.availability != null) {
+            s.put("gpu_driver_available", run.availability.available);
+            s.put("nnapi_device_descriptions", Arrays.asList(run.availability.deviceDescriptions()));
+            s.put("gpu_probe_error", run.availability.error);
+        }
+        s.put("gpu_requested", run.gpuRequested); s.put("fp16_relaxation_requested", run.fp16Requested);
+        s.put("qnn_requested", run.qnnRequested);
+        s.put("cpu_quantized_requested", run.quantizedCpuRequested);
+        s.put("ort_runtime_build_info", run.runtimeBuildInfo);
+        boolean gpuFilter = run.runtimeBuildInfo.contains("REUSE_NNAPI_GPU_ONLY_V1");
+        s.put("gpu_only_device_filter_verified", gpuFilter);
+        s.put("gpu_driver_delegation_verified", run.gpuRequested && gpuFilter
+                && Boolean.TRUE.equals(engine.get("nnapi_execution_verified")));
+        s.put("gpu_scope", "GPU driver targets supported NNAPI partitions; custom Mamba kernels remain on ORT CPU. No hardware trace or full-model GPU claim.");
         s.put("requested_source_preference", "VOICE_RECOGNITION then MIC"); s.put("actual_android_source", run.actualSource);
         s.put("preferred_builtin_accepted", run.preferredBuiltInAccepted); s.put("route", run.route); s.put("route_type", run.routeType);
         s.put("microphone_started", run.microphoneStarted); s.put("microphone_released", run.microphoneReleased);
@@ -437,7 +668,64 @@ public final class PhoneCaptureController implements AutoCloseable {
     private static Number number(Map<String, Object> values, String key) {
         Object value = values.get(key); return value instanceof Number ? (Number) value : 0;
     }
-    private void failPreparation(Run run, String message) {
+
+    static String modelPrecisionLabel(boolean candidateModel, boolean fp16Relaxation) {
+        if (candidateModel) return "QDQ model components; FP32 remaining model, IO and recurrent states";
+        return fp16Relaxation ? "FP32 graph with NNAPI FP16 relaxation requested" : "FP32";
+    }
+
+    private static Map<String, Object> processingIdentity(Run run) {
+        return processingIdentity(run.gpuRequested, run.qnnRequested, run.quantizedCpuRequested, run.threads,
+                run.runtimeVersion, run.runtimeBuildInfo, run.kernelBuildInfo, run.provenanceError);
+    }
+
+    /** Measured identities only; a recommended profile label does not verify execution or speed. */
+    static Map<String, Object> processingIdentity(boolean gpu, boolean qnn, boolean quantizedCpu,
+            int threads, String ortVersion, String ortBuild, String kernelBuild, String provenanceError) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        if (!gpu && !qnn && !quantizedCpu) {
+            result.put("recommended_cpu_profile_id", RecommendedCpuProfile.ID);
+            result.put("recommended_cpu_default_threads", RecommendedCpuProfile.DEFAULT_THREADS);
+            result.put("recommended_cpu_thread_setting_selected", threads == RecommendedCpuProfile.DEFAULT_THREADS);
+        }
+        result.put("ort_version", ortVersion);
+        result.put("ort_runtime_build_info", ortBuild);
+        Object kernel = kernelBuild;
+        try { kernel = new JSONObject(kernelBuild); }
+        catch (Exception ignored) { /* Keep explicit not_read/unavailable text from partial setup. */ }
+        result.put("native_kernel_build_info", kernel);
+        result.put("runtime_provenance_error", provenanceError);
+        return result;
+    }
+
+    private void failPreparation(Run run, Throwable error) {
+        String message = error.toString();
+        String details = EnhancementSession.boundedErrorDetails(error);
+        // A user away from ADB can share a failed startup receipt without voice data.
+        try {
+            Files.createDirectories(run.directory);
+            run.captureError = message;
+            Map<String, Object> failure = new LinkedHashMap<>();
+            failure.put("state", "ERROR"); failure.put("error", message);
+            failure.put("error_details", details);
+            failure.put("requested_backend", run.qnnRequested ? "QNN_HTP" : run.gpuRequested ? "NNAPI_ACCELERATOR" : "CPU");
+            failure.put("nnapi_fp16_relaxation_requested", run.fp16Requested);
+            failure.put("nnapi_execution_verified", false);
+            failure.put("qnn_execution_verified", false);
+            failure.put("qnn_requested", run.qnnRequested);
+            failure.put("cpu_quantized_requested", run.quantizedCpuRequested);
+            failure.put("model_sha256", run.modelSha256);
+            if (!run.qnnRequested && !run.quantizedCpuRequested) failure.put("expected_model_sha256", MODEL_SHA);
+            failure.put("model_precision_label", modelPrecisionLabel(run.qnnRequested || run.quantizedCpuRequested, run.fp16Requested));
+            failure.putAll(processingIdentity(run));
+            Map<String, Object> phone = captureMetadata(run, failure, false);
+            phone.put("error_details", details);
+            Files.write(run.directory.resolve("phone-capture.json"),
+                    (new JSONObject(phone).toString(2) + "\n").getBytes(StandardCharsets.UTF_8));
+            Files.write(run.directory.resolve("stats.json"),
+                    (new JSONObject(failure).toString(2) + "\n").getBytes(StandardCharsets.UTF_8));
+            synchronized (lock) { latestDiagnosticsDirectory = run.directory.toFile(); }
+        } catch (Exception ignored) { /* Preserve the original preparation error. */ }
         synchronized (lock) { if (active == run) active = null; }
         publish(run, "ERROR", "Could not prepare recording: " + message, false); postError(message); shutdownIfClosed();
     }
@@ -482,6 +770,7 @@ public final class PhoneCaptureController implements AutoCloseable {
     /** Destruction stops capture; work is drained rather than silently continuing in background. */
     @Override public void close() {
         synchronized (lock) { closed = true; }
+        gpuProbe.shutdown();
         stop("activity_destroyed"); shutdownIfClosed();
     }
     private void shutdownIfClosed() { synchronized (lock) { if (closed && active == null) preparation.shutdown(); } }

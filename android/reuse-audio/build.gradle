@@ -4,14 +4,15 @@ plugins {
 }
 
 group = 'io.github.reuse'
-version = '0.1.0-SNAPSHOT'
+version = '0.1.1-SNAPSHOT'
+def gpuExperimental = providers.gradleProperty('reuseGpuExperimental').getOrElse('false') == 'true'
 
 android {
     namespace 'io.github.reuse.audio'
     compileSdk 35
     defaultConfig {
         minSdk 26
-        ndk { abiFilters 'arm64-v8a', 'x86_64' }
+        ndk { abiFilters(*(gpuExperimental ? ['arm64-v8a'] : ['arm64-v8a', 'x86_64'])) }
         externalNativeBuild { cmake { arguments '-DANDROID_STL=c++_static' } }
     }
     ndkVersion '26.1.10909125'

@@ -2,13 +2,17 @@ package io.github.reuse.live;
 
 import io.github.reuse.ChunkedReuseEnhancer;
 import io.github.reuse.ReuseConfig;
+import io.github.reuse.RecommendedCpuProfile;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.io.PrintWriter;
+import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -18,19 +22,31 @@ import java.util.Map;
  * No microphone capture, Android dependency, processing-path file IO, or codec loading.
  */
 public final class EnhancementSession implements AutoCloseable {
+    /** Zero-input engine calls before backend verification, reset and onReady. */
+    public static final int MODEL_WARMUP_CALLS = 3;
     public interface Listener {
         void onReady();
         void onAudio(byte[] pcm16le);
         void onFinished(Map<String, Object> statistics);
         void onError(String code, String message, Map<String, Object> statistics);
     }
-    interface Engine extends AutoCloseable {
+    /**
+     * Owned 8 kHz mono engine used by the PCM adapter. Each process call accepts 800 samples,
+     * returns 640 samples after reset on its first call and 800 thereafter; flush returns the
+     * remaining 160 samples, or null for an empty stream. Methods run on the session worker.
+     */
+    public interface Engine extends AutoCloseable {
         float[] process(float[] input) throws Exception;
         float[] flush() throws Exception;
         void reset();
         void close() throws Exception;
+        /** Called after three zero-input warm-up calls and before reset and onReady. */
+        default void verifyAcceleratorExecution() throws Exception { }
+        default Map<String, Object> executionDiagnostics() { return Collections.emptyMap(); }
     }
-    interface EngineFactory { Engine create() throws Exception; }
+    /** Creates an exclusively owned engine on the session worker, after its initializer runs. */
+    @FunctionalInterface
+    public interface EngineFactory { Engine create() throws Exception; }
     private static final int RATE = 16000, CHUNK = 800, QUEUE_SAMPLES = 8000;
     private static final int MAX_INPUT_SAMPLES = 120 * RATE, FIR_TAIL_SAMPLES = 188;
     private final Object lock = new Object();
@@ -63,6 +79,9 @@ public final class EnhancementSession implements AutoCloseable {
     private final long[] callTimes = new long[1300];
     private int flushCalls;
     private boolean sampleIndexValidation;
+    private ReuseConfig.Backend requestedBackend = ReuseConfig.Backend.CPU;
+    private boolean nnapiUseFp16;
+    private Map<String, Object> backendDiagnostics = Collections.emptyMap();
 
     public EnhancementSession(Path modelDir, Path outputDir, Path customOpLibrary, Listener listener) {
         this(modelDir, outputDir, customOpLibrary, listener, () -> { });
@@ -71,27 +90,60 @@ public final class EnhancementSession implements AutoCloseable {
     /** Initializer runs before ORT creates helper threads (e.g. Android audio priority). */
     public EnhancementSession(Path modelDir, Path outputDir, Path customOpLibrary, Listener listener,
                               Runnable workerInitializer) {
-        this(modelDir, outputDir, customOpLibrary, listener, workerInitializer, 4);
+        this(modelDir, outputDir, customOpLibrary, listener, workerInitializer, RecommendedCpuProfile.DEFAULT_THREADS);
     }
 
     /** Configurable CPU threads; existing constructors retain their four-thread configuration. */
     public EnhancementSession(Path modelDir, Path outputDir, Path customOpLibrary, Listener listener,
                               Runnable workerInitializer, int intraOpThreads) {
-        this(outputDir, listener, workerInitializer,
-                modelFactory(modelDir, customOpLibrary, intraOpThreads), QUEUE_SAMPLES);
+        this(modelDir, outputDir, customOpLibrary, listener, workerInitializer, intraOpThreads,
+                ReuseConfig.Backend.CPU, false);
     }
 
-    private static EngineFactory modelFactory(Path modelDir, Path customOpLibrary, int intraOpThreads) {
-        if (intraOpThreads < 1 || intraOpThreads > 16)
-            throw new IllegalArgumentException("Session thread count must be between 1 and 16");
+    /**
+     * Opt-in hybrid NNAPI processing. Verifies delegated work during zero-audio warm-up before
+     * onReady; it does not prove GPU selection on an ordinary NNAPI runtime.
+     */
+    public EnhancementSession(Path modelDir, Path outputDir, Path customOpLibrary, Listener listener,
+                              Runnable workerInitializer, int intraOpThreads,
+                              ReuseConfig.Backend backend, boolean nnapiUseFp16) {
+        this(outputDir, listener, workerInitializer,
+                modelFactory(modelDir, outputDir, customOpLibrary, intraOpThreads, backend, nnapiUseFp16), QUEUE_SAMPLES);
+        this.requestedBackend = backend;
+        this.nnapiUseFp16 = nnapiUseFp16;
+    }
+
+    /**
+     * Uses a separately supplied engine while retaining the bounded 500 ms PCM queue, FIR
+     * conversion, padding, recording and terminal lifecycle. The session creates and closes
+     * the engine on its worker; the factory must not return an engine shared with another session.
+     * Accelerator implementations belong in optional adapters and report their evidence through
+     * {@link Engine#executionDiagnostics()}; the PCM adapter does not infer execution from loading.
+     */
+    public static EnhancementSession withEngine(Path outputDir, Listener listener,
+                                                 Runnable workerInitializer, EngineFactory factory) {
+        return new EnhancementSession(outputDir, listener, workerInitializer, factory, QUEUE_SAMPLES);
+    }
+
+    private static EngineFactory modelFactory(Path modelDir, Path outputDir, Path customOpLibrary,
+                                             int intraOpThreads, ReuseConfig.Backend backend, boolean nnapiUseFp16) {
+        ReuseConfig config = backend == ReuseConfig.Backend.CPU && !nnapiUseFp16
+                ? RecommendedCpuProfile.config(intraOpThreads)
+                : new ReuseConfig(RecommendedCpuProfile.SAMPLE_RATE, RecommendedCpuProfile.EXIT_LAYERS,
+                        intraOpThreads, backend, nnapiUseFp16,
+                        backend == ReuseConfig.Backend.NNAPI_ACCELERATOR && outputDir != null
+                                ? outputDir.resolve("nnapi-warmup") : null);
         return () -> {
+            if (backend == ReuseConfig.Backend.NNAPI_ACCELERATOR) Files.createDirectories(outputDir);
             final ChunkedReuseEnhancer e = new ChunkedReuseEnhancer(modelDir.resolve("model.onnx"),
-                    modelDir.resolve("manifest.json"), new ReuseConfig(8000, 3, intraOpThreads), customOpLibrary);
+                    modelDir.resolve("manifest.json"), config, customOpLibrary);
             return new Engine() {
                 public float[] process(float[] input) throws Exception { return e.process(input); }
                 public float[] flush() throws Exception { return e.flush(); }
                 public void reset() { e.reset(); }
                 public void close() throws Exception { e.close(); }
+                public void verifyAcceleratorExecution() throws Exception { e.verifyAcceleratorExecution(); }
+                public Map<String, Object> executionDiagnostics() { return e.executionDiagnostics(); }
             };
         };
     }
@@ -174,11 +226,15 @@ public final class EnhancementSession implements AutoCloseable {
     private void run() {
         Engine engine = null; FirResampler down = null, up = null;
         String terminalCode = null, terminalMessage = null;
+        Throwable terminalFailure = null;
         try {
             workerInitializer.run();
             long begin = System.nanoTime(); engine = factory.create(); loadNs = System.nanoTime() - begin;
+            synchronized (lock) { backendDiagnostics = new LinkedHashMap<>(engine.executionDiagnostics()); }
             begin = System.nanoTime();
-            for (int i = 0; i < 3; i++) engine.process(new float[CHUNK]);
+            for (int i = 0; i < MODEL_WARMUP_CALLS; i++) engine.process(new float[CHUNK]);
+            try { engine.verifyAcceleratorExecution(); }
+            finally { synchronized (lock) { backendDiagnostics = new LinkedHashMap<>(engine.executionDiagnostics()); } }
             engine.reset(); warmupNs = System.nanoTime() - begin;
             down = new FirResampler(); up = new FirResampler(); down.reset(); up.reset();
             synchronized (lock) { state = finishRequested ? "DRAINING" : "RUNNING"; sessionStartNs = System.nanoTime(); }
@@ -232,13 +288,19 @@ public final class EnhancementSession implements AutoCloseable {
             drainNs = System.nanoTime() - drainBegin;
         } catch (SessionFailure error) {
             terminalCode = error.code; terminalMessage = error.getMessage();
+            terminalFailure = error;
         } catch (Throwable error) {
+            terminalFailure = error;
             synchronized (lock) {
                 terminalCode = failureCode != null ? failureCode : abortRequested ? "ABORTED" : "PROCESSING_ERROR";
                 terminalMessage = failureMessage != null ? failureMessage : error.toString();
             }
         } finally {
-            try { if (engine != null) engine.close(); } catch (Exception error) { if (terminalCode == null) { terminalCode = "CLOSE_ERROR"; terminalMessage = error.toString(); } }
+            try { if (engine != null) engine.close(); } catch (Exception error) {
+                if (terminalCode == null) { terminalCode = "CLOSE_ERROR"; terminalMessage = error.toString(); }
+                if (terminalFailure == null) terminalFailure = error;
+                else if (terminalFailure != error) terminalFailure.addSuppressed(error);
+            }
             if (down != null) down.close(); if (up != null) up.close();
             synchronized (lock) {
                 droppedSamples += queuedSamples; queuedSamples = 0; queue.clear(); arrivalTimes.clear();
@@ -248,9 +310,17 @@ public final class EnhancementSession implements AutoCloseable {
                 Files.createDirectories(outputDir);
                 writeWave(outputDir.resolve("raw.wav"), raw, rawBytes);
                 writeWave(outputDir.resolve("enhanced.wav"), enhanced, enhancedBytes);
-            } catch (Exception error) { terminalCode = "RECORDING_ERROR"; terminalMessage = error.toString(); synchronized (lock) { state = "ERROR"; } }
+            } catch (Exception error) {
+                terminalCode = "RECORDING_ERROR"; terminalMessage = error.toString();
+                if (terminalFailure != null && terminalFailure != error) error.addSuppressed(terminalFailure);
+                terminalFailure = error;
+                synchronized (lock) { state = "ERROR"; }
+            }
             Map<String, Object> stats = statistics();
-            if (terminalCode != null) { stats.put("error_code", terminalCode); stats.put("error", terminalMessage); }
+            if (terminalCode != null) {
+                stats.put("error_code", terminalCode); stats.put("error", terminalMessage);
+                stats.put("error_details", boundedErrorDetails(terminalFailure));
+            }
             try { Files.write(outputDir.resolve("stats.json"), (json(stats) + "\n").getBytes(StandardCharsets.UTF_8)); }
             catch (Exception ignored) { stats.put("stats_file_error", true); }
             try {
@@ -273,11 +343,18 @@ public final class EnhancementSession implements AutoCloseable {
     private void processChunk(FirResampler up, Engine engine) throws Exception {
         long begin = System.nanoTime(); float[] output = engine.process(modelInput);
         long elapsed = System.nanoTime() - begin;
-        processNs += elapsed; maxProcessNs = Math.max(maxProcessNs, elapsed); calls++;
-        callTimes[(int) calls - 1] = elapsed;
-        if (elapsed > 100_000_000L) deadlineMisses++;
-        modelInputSamples += CHUNK;
-        if (output == null || output.length != (calls == 1 ? 640 : 800)) throw new IOException("Unexpected enhancer output length");
+        final long completedCalls;
+        // Publish one completed timing record atomically to concurrent statistics readers.
+        // Model execution and output conversion stay outside this short critical section.
+        synchronized (lock) {
+            processNs += elapsed; maxProcessNs = Math.max(maxProcessNs, elapsed);
+            callTimes[(int) calls] = elapsed;
+            calls++;
+            if (elapsed > 100_000_000L) deadlineMisses++;
+            modelInputSamples += CHUNK;
+            completedCalls = calls;
+        }
+        if (output == null || output.length != (completedCalls == 1 ? 640 : 800)) throw new IOException("Unexpected enhancer output length");
         emitLow(output, up);
     }
     private void emitLow(float[] values, FirResampler up) throws Exception {
@@ -307,6 +384,12 @@ public final class EnhancementSession implements AutoCloseable {
             int completedCalls = (int) calls;
             Map<String, Object> s = new LinkedHashMap<>();
             s.put("state", state); s.put("sample_rate", RATE); s.put("model_rate", 8000);
+            s.put("requested_backend", requestedBackend.name());
+            s.put("nnapi_fp16_relaxation_requested", nnapiUseFp16);
+            s.put("hybrid_execution_requested", requestedBackend == ReuseConfig.Backend.NNAPI_ACCELERATOR);
+            s.put("nnapi_execution_verified", false);
+            s.put("gpu_execution_verified", false);
+            s.putAll(backendDiagnostics);
             s.put("input_samples", acceptedSamples); s.put("processed_input_samples", processedSamples);
             s.put("output_samples", enhancedBytes / 2); s.put("raw_recorded_samples", rawBytes / 2);
             s.put("dropped_input_samples", droppedSamples); s.put("rejected_after_stop_samples", rejectedAfterStopSamples);
@@ -328,7 +411,7 @@ public final class EnhancementSession implements AutoCloseable {
             s.put("deadline_misses", deadlineMisses); s.put("flush_ms", flushNs / 1e6); s.put("fir_ms", firNs / 1e6);
             s.put("worker_total_ms", workerNs / 1e6); s.put("drain_ms", drainNs / 1e6);
             s.put("processing_rtf", processedSamples == 0 ? 0 : (workerNs + drainNs) / (processedSamples * 1e9 / RATE));
-            s.put("load_ms", loadNs / 1e6); s.put("warmup_ms", warmupNs / 1e6); s.put("warmup_calls", 3);
+            s.put("load_ms", loadNs / 1e6); s.put("warmup_ms", warmupNs / 1e6); s.put("warmup_calls", MODEL_WARMUP_CALLS);
             s.put("first_output_after_ready_ms", firstOutputNs == 0 ? 0 : (firstOutputNs - sessionStartNs) / 1e6);
             s.put("first_output_after_input_ms", firstOutputNs == 0 || firstInputNs == 0 ? 0 : (firstOutputNs - firstInputNs) / 1e6);
             s.put("latency_scope", "native queue/processing; excludes source capture/transport latency");
@@ -339,6 +422,38 @@ public final class EnhancementSession implements AutoCloseable {
     private static final class SessionFailure extends Exception {
         final String code;
         SessionFailure(String code, String text) { super(text); this.code = code; }
+    }
+
+    /** Stack, causes and suppressed failures, bounded to 64 KiB of UTF-8 text; attaches no audio. */
+    public static String boundedErrorDetails(Throwable error) {
+        if (error == null) return "";
+        final String marker = "\n[error_details truncated at 64 KiB]\n";
+        final int limit = 64 * 1024 - marker.length();
+        StringBuilder text = new StringBuilder();
+        final int[] bytes = {0};
+        final boolean[] truncated = {false};
+        try (PrintWriter output = new PrintWriter(new Writer() {
+            @Override public void write(char[] chars, int offset, int length) {
+                for (int i = offset; i < offset + length; i++) {
+                    if (truncated[0]) return;
+                    char value = chars[i];
+                    boolean pair = Character.isHighSurrogate(value) && i + 1 < offset + length
+                            && Character.isLowSurrogate(chars[i + 1]);
+                    int count = pair ? 4 : value <= 0x7f ? 1 : value <= 0x7ff ? 2 : 3;
+                    if (bytes[0] + count > limit) { truncated[0] = true; return; }
+                    text.append(value); bytes[0] += count;
+                    if (pair) text.append(chars[++i]);
+                }
+            }
+            @Override public void flush() { }
+            @Override public void close() { }
+        })) { error.printStackTrace(output); }
+        if (truncated[0]) {
+            if (text.length() > 0 && Character.isHighSurrogate(text.charAt(text.length() - 1)))
+                text.setLength(text.length() - 1);
+            text.append(marker);
+        }
+        return text.toString();
     }
     private static void writeWave(Path path, byte[] data, int length) throws IOException {
         try (RandomAccessFile out = new RandomAccessFile(path.toFile(), "rw")) {

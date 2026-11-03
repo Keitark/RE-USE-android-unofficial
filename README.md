@@ -2,7 +2,7 @@
 
 [![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)](docs/phone-demo.md#requirements-and-scope)
 [![64-bit ARM and x86](https://img.shields.io/badge/ABI-arm64--v8a%20%7C%20x86__64-blue)](docs/phone-demo.md#requirements-and-scope)
-[![Preview release](https://img.shields.io/badge/release-v0.1.1--preview1-blue)](https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.1.1-preview1)
+[![Preview release](https://img.shields.io/badge/release-v0.8.0--cpu--demo--preview1-blue)](https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.8.0-cpu-demo-preview1)
 [![Noncommercial research](https://img.shields.io/badge/use-noncommercial%20research-orange)](docs/license.md)
 
 An unofficial Android integration of NVIDIA Real-time RE-USE. This project is
@@ -12,11 +12,11 @@ not affiliated with, endorsed by, or maintained by NVIDIA.
 compare the original and enhanced audio, and share the WAV pair. No G2 glasses,
 Even app, account, or cloud audio service is required.
 
-[![Try the Android APK](https://img.shields.io/badge/Try%20the%20Android%20APK-Download-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Keitark/RE-USE-android-unofficial/releases/download/v0.1.1-preview1/reuse-phone-demo.apk)
+[![Try the Android APK](https://img.shields.io/badge/Try%20the%20Android%20APK-Download-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Keitark/RE-USE-android-unofficial/releases/download/v0.8.0-cpu-demo-preview1/reuse-phone-demo.apk)
 
 **[Demo cover page](https://keitark.github.io/RE-USE-android-unofficial/)** ·
 **[User guide](docs/phone-demo.md)** · **[Library integration](docs/library.md)** ·
-[Release & checksums](https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.1.1-preview1)
+[Release & checksums](https://github.com/Keitark/RE-USE-android-unofficial/releases/tag/v0.8.0-cpu-demo-preview1)
 
 ## Quick start
 
@@ -35,6 +35,12 @@ Even app, account, or cloud audio service is required.
 The demo keeps audio on the phone unless you choose to share it. Recording
 stops after 60 seconds or when you leave the screen. The APK is a debug-signed
 research preview; verify it against the release's `SHA256SUMS`.
+
+**Recommended source configuration:** causal 8 kHz / exit 3 / FP32 CPU,
+five-hop calls, ONNX Runtime 1.29 and the tested ARM FMA/register-scan paths.
+Four CPU threads are suggested for Xperia; two remain available for comparison.
+The ordinary demo exposes model/runtime identity and **Share diagnostics (no
+audio)**. See the [reproducible profile and validation scope](docs/recommended-cpu-profile.md).
 
 **Real-time scope:** two short Xperia 1 IV microphone tests processed all
 received samples without application drops. Performance depends on the device;
@@ -89,6 +95,48 @@ is a separate noncausal model, not the checkpoint used by this demo.
 
 ## Build with the libraries
 
+An optional [GPU/CPU preview](docs/gpu-demo.md) adds explicit NNAPI GPU-driver
+selection through a separately built runtime and APK. It retains CPU execution
+for unsupported operators. Physical-device GPU compatibility, quality and
+performance remain unverified; the existing CPU download above is unchanged.
+
+A separate [QNN HTP probe](docs/qnn-probe.md) compares CPU FP32, CPU quantized
+and NPU execution of a synthetic graph, one RE-USE projection and two encoder
+convolutions. The [Xperia probe2 results](docs/qnn-probe.md#xperia-cpunpu-comparison)
+show the heavier convolution at **3.853 ms CPU FP32 / 1.527 ms CPU quantized /
+0.976 ms NPU**, while the smaller operations favor CPU. These are isolated
+layer measurements, not full-model RTF. The probe does not record audio or
+accelerate the full microphone pipeline. Its dependencies are isolated from
+the existing demos.
+
+The experimental [QNN/quantized CPU demo](docs/qnn-convolution-experiments.md)
+runs the complete causal model on Xperia 1 IV. Earlier paced public-input
+comparisons are retained in that guide. Later cross-thread consistency tests
+rejected quantized CPU configurations with two or more threads; their fast
+timings are not recommended settings. The updated experimental microphone
+adapter requires one thread for that choice. Original FP32 CPU remains the
+recommended demo path. The optional QNN APK and libraries are separate from
+the ordinary CPU download above.
+See the [earlier one-convolution experiments](docs/qnn-hybrid.md) for comparison.
+
+The separate [compute-resource test APK](docs/compute-resources.md) prepares
+CPU-thread, direct Adreno GPU, Vulkan-compute and HTP-mode comparisons for
+later device testing. It records unsupported paths and numerical failures
+explicitly. Its build is not a new device-performance result.
+
+The [full neural GPU reconstruction](docs/full-gpu-reconstruction.md) removes
+CPU custom operators from a separate FP32 ONNX candidate. Its strict Xperia
+test passed the fixed numerical limits with CPU fallback disabled, but averaged
+**170.449 ms per call** versus its paired **39.629 ms CPU** control. Host
+analysis/synthesis remained CPU work; this was not a live playout test.
+The guide also explains the measured CPU result: four threads
+reduced short-clip FP32 wall time from **48.7 to 37.9 ms per 100 ms call**, while
+using more total process CPU time. This did not change model precision or weights.
+
+The [benchmark telemetry guide](docs/benchmark-telemetry.md) explains CPU clock,
+temperature and process-load logging, Android's system-load restrictions, and
+the optional connected ADB collector for investigating variation between runs.
+
 The demo is an adapter around reusable AARs. Both the phone app and optional G2
 companion consume the same enhancement pipeline.
 
@@ -96,6 +144,8 @@ companion consume the same enhancement pipeline.
 |---|---|
 | `:reuse` | Core model, stateful STFT, and native ONNX operations |
 | `:reuse-audio` | Bounded PCM sessions, resampling, recording, and statistics |
+| `:reuse-qnn` | Optional QNN HTP session backend and execution evidence |
+| `:reuse-audio-qnn` | Optional QNN engine for the shared PCM session |
 | `:phone-demo` | Ordinary Android microphone, UI, playback, and sharing |
 | `:live-companion` | Optional Even G2 / Hub transport |
 
@@ -126,7 +176,7 @@ runtime. Recording/playback belongs to the integrating application.
 ## Included
 
 - Java API usable from Kotlin; Android API 26+.
-- CPU ONNX Runtime 1.23.2, fixed 8 kHz or 16 kHz graphs.
+- CPU ONNX Runtime 1.29.0, fixed 8 kHz or 16 kHz graphs.
 - Three Mamba blocks by default (1,823,555 active parameters), zero look-ahead.
   Export can select exit layers 3–12 for a different quality/cost trade-off.
 - Fixed 40 ms periodic-Hann window, 20 ms hop, exact stream flush/reset behavior.
@@ -199,7 +249,7 @@ dependency. To consume a copied AAR directly, also declare:
 
 ```kotlin
 implementation(files("libs/reuse-release.aar"))
-implementation("com.microsoft.onnxruntime:onnxruntime-android:1.23.2")
+implementation("com.microsoft.onnxruntime:onnxruntime-android:1.29.0")
 ```
 
 ## Export the real model
@@ -272,11 +322,14 @@ change the Android sample rate.
 ## Use from Kotlin
 
 ```kotlin
-val config = ReuseConfig(8000, 3, 2) // sample rate, exit layer, CPU threads
-ReuseEnhancer.create(context, modelFile.toPath(), manifestFile.toPath(), config).use { enhancer ->
-    // Run on a dedicated worker thread. Every 8 kHz input has exactly 160 samples.
-    for (pcmHop: FloatArray in inputHops) {
-        enhancer.process(pcmHop)?.let { enhancedHop -> sink.write(enhancedHop) }
+import io.github.reuse.ChunkedReuseEnhancer
+import io.github.reuse.RecommendedCpuProfile
+
+val config = RecommendedCpuProfile.config() // 8 kHz, exit 3, FP32 CPU, 4 threads
+ChunkedReuseEnhancer.create(context, modelFile.toPath(), manifestFile.toPath(), config).use { enhancer ->
+    // Dedicated worker; the recommended graph takes 800 samples / 100 ms at 8 kHz.
+    for (pcmChunk: FloatArray in inputChunks) {
+        sink.write(enhancer.process(pcmChunk))
     }
     enhancer.flush()?.let { enhancedHop -> sink.write(enhancedHop) }
 }

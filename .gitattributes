@@ -1,3 +1,8 @@
 * text=auto eol=lf
 *.bat text eol=crlf
 *.jar binary
+# Unified diff context lines intentionally contain a space on blank lines.
+*.patch -whitespace
+# Preserve downloaded third-party license and notice bytes.
+docs/licenses/qnn/*.txt -text -whitespace
+docs/licenses/qnn/*.pdf binary

@@ -67,10 +67,15 @@ def selective_scan(a: Tensor, b: Tensor, mode: str = "parallel") -> Tensor:
 
     # h[2k] = b[2k] + a[2k]*h[2k-1], with h[-1]=0.
     # odd_prefix already contains h[1], h[3], ... .
-    even_prefix = torch.cat(
-        (even_b[:, :1], even_b[:, 1:] + even_a[:, 1:] * odd_prefix[:, :-1]),
-        dim=1,
-    )
+    # With one pair the tail is empty. Avoid materializing zero-length tensors
+    # in the fixed-shape ONNX graph; the only even prefix is exactly b[0].
+    if pairs == 1:
+        even_prefix = even_b
+    else:
+        even_prefix = torch.cat(
+            (even_b[:, :1], even_b[:, 1:] + even_a[:, 1:] * odd_prefix[:, :-1]),
+            dim=1,
+        )
     interleaved = torch.stack((even_prefix, odd_prefix), dim=2).flatten(1, 2)
     if length % 2:
         last = b[:, -1:] + a[:, -1:] * odd_prefix[:, -1:]

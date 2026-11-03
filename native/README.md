@@ -1,7 +1,8 @@
 # Native CPU kernels
 
 The optional `reuse_ort_ops` library registers `com.reuse::SelectiveScan` with
-ONNX Runtime API 23 (runtime 1.23.2). It fuses the frequency-axis recurrence
+ONNX Runtime C API 23 (retained headers; ordinary Android runtime 1.29.0).
+It fuses the frequency-axis recurrence
 and observation into one CPU kernel without materializing a
 `[batch, length, inner, state]` tensor for each scan stage.
 

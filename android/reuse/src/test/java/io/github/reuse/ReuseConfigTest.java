@@ -12,6 +12,9 @@ public class ReuseConfigTest {
         assertEquals(640, config.startupInputSamples());
         assertEquals(320, config.bufferedDelaySamples());
         assertEquals(3, config.exitLayers);
+        assertEquals(ReuseConfig.Backend.CPU, config.backend);
+        assertFalse(config.nnapiUseFp16);
+        assertNull(config.nnapiProfilingPrefix);
     }
 
     @Test public void unsupportedFormatsFailEarly() {
@@ -19,5 +22,23 @@ public class ReuseConfigTest {
         assertThrows(IllegalArgumentException.class, () -> new ReuseConfig(8000, 2, 1));
         assertThrows(IllegalArgumentException.class, () -> new ReuseConfig(8000, 13, 1));
         assertThrows(IllegalArgumentException.class, () -> new ReuseConfig(8000, 3, 0));
+    }
+
+    @Test public void acceleratorPrecisionAndVerificationAreExplicit() {
+        java.nio.file.Path profile = java.nio.file.Paths.get("private-capture", "nnapi-warmup");
+        ReuseConfig config = new ReuseConfig(8000, 3, 4,
+                ReuseConfig.Backend.NNAPI_ACCELERATOR, true, profile);
+        assertEquals(ReuseConfig.Backend.NNAPI_ACCELERATOR, config.backend);
+        assertTrue(config.nnapiUseFp16);
+        assertEquals(profile, config.nnapiProfilingPrefix);
+        assertEquals(160, config.hopSize);
+        assertThrows(IllegalArgumentException.class,
+                () -> new ReuseConfig(8000, 3, 4, null, false, null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new ReuseConfig(8000, 3, 4, ReuseConfig.Backend.CPU, true, null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new ReuseConfig(8000, 3, 4, ReuseConfig.Backend.NNAPI_ACCELERATOR, false, null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new ReuseConfig(8000, 3, 4, ReuseConfig.Backend.CPU, false, profile));
     }
 }

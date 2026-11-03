@@ -1,0 +1,376 @@
+{
+  "schema_version": 1,
+  "timestamp_utc": "2026-11-02T23:01:24.119294+00:00",
+  "scope": "Benchmark telemetry build/package verification, Xperia sensor-capability check and instrumented public-input resource matrix; no live-audio or causal slowdown acceptance",
+  "source_implementation_commit": "73a49cf7476ff91f128e4786a76d28efee212f8d",
+  "build_flags": {
+    "reuseNeonFma": true,
+    "reuseScanN16Registers": true
+  },
+  "validation": {
+    "package_audit": {
+      "passed_checks": 230,
+      "failed_checks": 0,
+      "status": "PASS_HOST_PACKAGE_AUDIT"
+    },
+    "java_unit_tests": {
+      "qnn-probe": {
+        "tests": 74,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "reuse": {
+        "tests": 34,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "reuse-qnn": {
+        "tests": 16,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "reuse-audio-qnn": {
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "phone-demo": {
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "java_unit_tests_total": 148,
+    "python_sidecar_tests": 13,
+    "python_sidecar_subtests": 20,
+    "app_lint": {
+      "qnn-probe": {
+        "errors": 0,
+        "warnings": 10
+      },
+      "phone-demo": {
+        "errors": 0,
+        "warnings": 25
+      }
+    },
+    "probe_build_passed": true,
+    "assets_identical_to_full_gpu_preview": true,
+    "vendor_native_bytes_match_pinned_maven": true,
+    "signature_preserved": true,
+    "new_permissions_added": false,
+    "prior_release_assets_preserved": true
+  },
+  "artifact": {
+    "file": "reuse-telemetry-probe.apk",
+    "bytes": 140297387,
+    "sha256": "61e0f82bc6073af76330fd2d5af2f5a8c5ec1e5923448dc5d063e50814d4c4f9",
+    "manifest_identity": {
+      "package": "io.github.reuse.qnnprobe",
+      "version_code": 6,
+      "version_name": "0.7.0-telemetry-probe1",
+      "min_sdk": 29,
+      "target_sdk": 35,
+      "launcher": "io.github.reuse.qnnprobe.ResourceProbeActivity"
+    },
+    "signature": {
+      "verified": true,
+      "certificate_sha256": [
+        "7af2554a1fe30be6a3d1c8e04f79a4e733f77f8d78d9f04a03e4cce312e55fbb"
+      ],
+      "verification_schemes": {
+        "v1": false,
+        "v2": true,
+        "v3": false,
+        "v3.1": false,
+        "v4": false
+      }
+    },
+    "packaged_abis": [
+      "arm64-v8a"
+    ],
+    "asset_count": 98,
+    "vendor_native_library_count": 22,
+    "own_native_sha256": {
+      "libreuse_ort_ops.so": "457e2202c2b313534560304175a98c4a8846c847260390d9154543f0686db261",
+      "libreuse_live_dsp.so": "ec20e3a03a5c2cd0a62a563f544008d7e23d5472ce76c143e2123a286cb6df57",
+      "libreuse_resource_inventory.so": "7b3b8ee673e1ffd2a52262398bf36ed40f60205eefad8e52fc2a6ec91a24f68b"
+    },
+    "permissions": [
+      "io.github.reuse.qnnprobe.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+    ]
+  },
+  "dependencies": [
+    {
+      "coordinate": "com.microsoft.onnxruntime:onnxruntime-android:1.29.0",
+      "sha256": "e97540ca78fe36f6fe2013f82843414fb843b6c7681fb04644cba5e1406662dd",
+      "native_members": [
+        {
+          "member": "jni/arm64-v8a/libonnxruntime.so",
+          "bytes": 32120992,
+          "sha256": "3a602b463d434d20fbf69cd1b8bdfd2f86a2cb67d08de97aec8f62476fa4ab87"
+        },
+        {
+          "member": "jni/arm64-v8a/libonnxruntime4j_jni.so",
+          "bytes": 111648,
+          "sha256": "45673d7fba377fe0555892460766051b5993d65c9f65e528dc9d515c07c9f683"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.qualcomm.qti:onnxruntime-android-qnn:2.7.0",
+      "sha256": "ecd36df222e2a947ceb13bdd6fec181d1f1841b40379e21ce519830f2fbd562a",
+      "native_members": [
+        {
+          "member": "jni/arm64-v8a/libonnxruntime_providers_qnn.so",
+          "bytes": 4448624,
+          "sha256": "7616d66073d4d64fead7ed6f7b2384fe9e0e9f708fbce9a67dee215b122a2527"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.qualcomm.qti:qnn-runtime:2.51.0",
+      "sha256": "6388face1d5aa5e8958d745e5a547e92b5bec6fc332dfb1b438b1e17ffa02861",
+      "native_members": [
+        {
+          "member": "jni/arm64-v8a/libQnnDsp.so",
+          "bytes": 1768416,
+          "sha256": "da5721e6347f95672ad9575d7ffda2bbc1eef275d3f4713e387d265885324b1a"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnDspV66Skel.so",
+          "bytes": 2438864,
+          "sha256": "a6274e251ca41ebb762351ca8ba1b6c05496245be58a6f72571c63ce1fd84a32"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnDspV66Stub.so",
+          "bytes": 328584,
+          "sha256": "95aa01e2584c988ee30531a11dbb28452b1a7e81ee7463bfed0877062395a1bf"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnGpu.so",
+          "bytes": 12367840,
+          "sha256": "a0cb0d81b5d65431fd891d15f69ce842bc79631177ff4100ea3759df6bddee38"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtp.so",
+          "bytes": 4158496,
+          "sha256": "ebf19c66128da2169176d298b30fcd149d14e2d03f96e629538e26f56b7e2d7d"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpPrepare.so",
+          "bytes": 88106984,
+          "sha256": "1e6e63467675a12562b6f317c39345144fb7383dd4d0314b4bde0d25d2b17f59"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV68Skel.so",
+          "bytes": 13136716,
+          "sha256": "8ec5c35d40c3c41101a19f201a8606c4c3d337ce4c14c387f87190b286849ec2"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV68Stub.so",
+          "bytes": 795440,
+          "sha256": "4128433f57dd2bcfb57ec960b71860f8b67b46f70d6216c9a09389b8185d5cbc"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV69Skel.so",
+          "bytes": 13180108,
+          "sha256": "c09d91bea6f95a40c5adff7ac04394893f5eee777a71b58eb4fd64249128151b"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV69Stub.so",
+          "bytes": 795440,
+          "sha256": "1614baad47088ff5c15d9aead8509cdd7999fb16adb8379e9f8c6b113f74c930"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV73Skel.so",
+          "bytes": 19685168,
+          "sha256": "686371152962293fcfcb1f025a12aeccc9a9f610bc307d5991bd7c55f28c8179"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV73Stub.so",
+          "bytes": 802904,
+          "sha256": "11f8a0fe4ae121c135b552febcd884048222e56c4da7db528c5a7fe5f18edf91"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV75Skel.so",
+          "bytes": 19664660,
+          "sha256": "6cab0630a3fc9ba93368905660455ea916a61c208e162354b54bebd1ef950941"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV75Stub.so",
+          "bytes": 802904,
+          "sha256": "ecbb2eec558fd1ba818e5da7dbfcd34484f4cdabe569b86a9d4fa5ef6e646157"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV79Skel.so",
+          "bytes": 19486584,
+          "sha256": "43c87a5df1e970ba3e518b9ee33962036dd111ac9331dea6be154d8ff460ede8"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV79Stub.so",
+          "bytes": 802904,
+          "sha256": "21ea3c0d52646332c2312129a90014ed3e6255d198a0109e9c991dd4bacaecf7"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV81Skel.so",
+          "bytes": 20677132,
+          "sha256": "5e858eb739f75ab155d58977c9ab4fa678376881d4dae5cc260fb1cf2eab14c1"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnHtpV81Stub.so",
+          "bytes": 827328,
+          "sha256": "c610ff7a508fa4abb44ef90e2f490035879fa9c19314bac9b2faed3b4aa5cc45"
+        },
+        {
+          "member": "jni/arm64-v8a/libQnnSystem.so",
+          "bytes": 4125504,
+          "sha256": "460e782ff0d4de0ff89e1fbf2f4d8a7f96a0b86203d1de0b6db7413d37bc90af"
+        }
+      ]
+    }
+  ],
+  "telemetry": {
+    "sample_interval_ms": 500,
+    "file_limit_bytes": 8388608,
+    "sample_limit": 5000,
+    "call_event_limit": 5000,
+    "headroom_min_poll_interval_ms": 10000,
+    "clock_fields": [
+      "reported/requested frequency",
+      "hardware-derived frequency when readable",
+      "dynamic policy min/max",
+      "online state"
+    ],
+    "temperature_fields": [
+      "vendor-labelled CPU/GPU/SoC/skin/battery raw values and validity",
+      "separate battery API temperature",
+      "thermal status/headroom"
+    ],
+    "load_fields": [
+      "app-process CPU delta one-core-equivalent percentage",
+      "best-effort app-readable system CPU/load",
+      "optional ADB shell aggregate/per-core CPU and load average"
+    ],
+    "observer_cost_recorded": true,
+    "timed_inference_contains_sensor_io": false,
+    "concurrent_observer_overhead_disclosed": true,
+    "other_app_names_collected": false
+  },
+  "device_capability_check": {
+    "device_family": "Sony Xperia 1 IV / SO-51C",
+    "android_api": 34,
+    "installed_apk_sha256_verified": true,
+    "app_samples": 3,
+    "clock_fields_available": true,
+    "hardware_derived_frequency_status": "permission_denied",
+    "vendor_cpu_gpu_temperature_fields_available": true,
+    "battery_temperature_available": true,
+    "socd_temperature_null_verified": true,
+    "app_system_cpu_status": "permission_denied",
+    "adb_samples": 8,
+    "adb_system_cpu_available": true,
+    "adb_cpu_pressure_status": "permission_denied",
+    "app_and_adb_timestamps_overlap_verified": true,
+    "adb_files_attached_to_app_capture": true,
+    "sampler_thread_stopped": true,
+    "phone_locked_during_capability_check": true,
+    "performance_benchmark_run": false,
+    "slowdown_cause_identified": false,
+    "microphone_started": false,
+    "audio_captured": false
+  },
+  "limitations": [
+    "Sparse driver frequency reports are not continuous measured hardware clock traces.",
+    "Android denies app-wide access to aggregate system proc files on this device; ADB shell measurements are a separate source.",
+    "Vendor thermal control values such as socd are not assumed to be Celsius.",
+    "Sampling competes with inference and contributes to process CPU time; observer cost is recorded, not assumed zero.",
+    "Instrumented public-clip measurements are sequential and unpaced; clocks, core placement and thermal conditions are not controlled.",
+    "Driver policy caps and vendor temperatures are observations; thermal or power limiting is plausible but no exact causal attribution or hardware frequency measurement was obtained.",
+    "No live microphone/dropout, energy or perceptual-quality acceptance."
+  ],
+  "instrumented_device_benchmark": {
+    "device_family": "Sony Xperia 1 IV / SO-51C",
+    "android_api": 34,
+    "status": "COMPARISONS_FINISHED",
+    "foreground_timing_qualified": true,
+    "total_wall_ms": 139745.600676,
+    "app_samples": 280,
+    "call_events_written": 2056,
+    "dropped_call_events": 0,
+    "sampler_thread_stopped": true,
+    "observer_thread_cpu_ms": 1212.311537,
+    "observer_collection_wall_ms": 1809.251451,
+    "adb_samples": 240,
+    "adb_system_load_source": "adb_shell",
+    "adb_covers_entire_app_run": true,
+    "adb_files_attached_and_hash_verified": true,
+    "cpu_fp32_configurations": [
+      {
+        "threads": 1,
+        "verified_repeats": 2,
+        "mean_call_wall_ms": 65.4782058769231,
+        "offline_processing_rtf": 0.6670037489197533,
+        "max_call_wall_ms": 72.312552,
+        "calls_over_100ms": 0
+      },
+      {
+        "threads": 2,
+        "verified_repeats": 2,
+        "mean_call_wall_ms": 49.3014094076923,
+        "offline_processing_rtf": 0.502203510339506,
+        "max_call_wall_ms": 53.379532,
+        "calls_over_100ms": 0
+      },
+      {
+        "threads": 3,
+        "verified_repeats": 2,
+        "mean_call_wall_ms": 46.49476481538461,
+        "offline_processing_rtf": 0.4734439861111111,
+        "max_call_wall_ms": 55.928907,
+        "calls_over_100ms": 0
+      },
+      {
+        "threads": 4,
+        "verified_repeats": 2,
+        "mean_call_wall_ms": 38.32678518461539,
+        "offline_processing_rtf": 0.3903055186728396,
+        "max_call_wall_ms": 45.553229,
+        "calls_over_100ms": 0
+      },
+      {
+        "threads": 6,
+        "verified_repeats": 2,
+        "mean_call_wall_ms": 41.338847723076924,
+        "offline_processing_rtf": 0.42099928834876543,
+        "max_call_wall_ms": 53.592135,
+        "calls_over_100ms": 0
+      },
+      {
+        "threads": 8,
+        "verified_repeats": 2,
+        "mean_call_wall_ms": 45.33721025384615,
+        "offline_processing_rtf": 0.4613851424382716,
+        "max_call_wall_ms": 59.421718,
+        "calls_over_100ms": 0
+      }
+    ],
+    "vendor_cpu_sensor_peak_celsius": 94.8,
+    "driver_policy_cap_observations_khz": {
+      "prime_cpu7_later": 2515200,
+      "cpu4_later": 2227200,
+      "prime_cpu7_early_observed_high": 2995200,
+      "cpu4_early_observed_high": 2496000
+    },
+    "interpretation": "Slower repeated trials coincide with lower driver policy frequency caps. High vendor CPU temperatures were also observed during the run. This supports changing frequency/power conditions as a contributor; the exact cap cause and per-app background attribution are not established.",
+    "slowdown_cause_identified": false,
+    "microphone_started": false,
+    "audio_captured": false,
+    "live_queue_or_playout_verified": false,
+    "audio_quality_verified": false
+  }
+}

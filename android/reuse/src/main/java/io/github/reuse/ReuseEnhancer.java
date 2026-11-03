@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,7 +24,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Stateful mono PCM speech enhancement. Each instance owns one stream and one CPU ORT session.
+ * Stateful mono PCM speech enhancement. Each instance owns one stream and one ORT session.
  * Run on a dedicated worker thread, never in an AudioRecord/AAudio callback or on the UI thread.
  * PCM is normally in [-1,1]; no clipping or automatic gain control is applied.
  *
@@ -78,6 +79,7 @@ public final class ReuseEnhancer implements AutoCloseable {
     private final StreamingStft.SpectrumTransform transform = this::infer;
     private OrtSession.SessionOptions options;
     private OrtSession session;
+    private Map<String, Object> executionDiagnostics = Collections.emptyMap();
     private TensorBuffer magnitude;
     private TensorBuffer phase;
     private TensorBuffer real;
@@ -132,6 +134,8 @@ public final class ReuseEnhancer implements AutoCloseable {
             options.setInterOpNumThreads(1);
             options.addConfigEntry("session.intra_op.allow_spinning", "0");
             options.addConfigEntry("session.inter_op.allow_spinning", "0");
+            BackendSessionOptions.apply(config, options);
+            executionDiagnostics = BackendSessionOptions.diagnostics(config, environment);
             if (manifest.requiresSelectiveScan) {
                 options.registerCustomOpLibrary(customOpLibrary.toAbsolutePath().toString());
             }
@@ -160,6 +164,24 @@ public final class ReuseEnhancer implements AutoCloseable {
     }
 
     public ReuseConfig config() { return config; }
+
+    /** Requested backend/runtime metadata. Provider availability is not measured GPU coverage. */
+    public Map<String, Object> executionDiagnostics() { return executionDiagnostics; }
+
+    /**
+     * Call after zero-audio warm-up and before recording. Stops startup profiling and rejects
+     * an NNAPI request that actually delegated no kernels. CPU mode is a no-op.
+     */
+    public synchronized void verifyAcceleratorExecution() throws IOException, OrtException {
+        checkReady();
+        if (config.backend == ReuseConfig.Backend.CPU
+                || Boolean.TRUE.equals(executionDiagnostics.get("nnapi_execution_verified"))) return;
+        executionDiagnostics = BackendSessionOptions.finishVerification(session, executionDiagnostics);
+        if (!Boolean.TRUE.equals(executionDiagnostics.get("nnapi_execution_verified"))) {
+            failed = true;
+            throw new IOException("NNAPI delegated no kernels during warm-up; select CPU mode instead");
+        }
+    }
 
     /** Returns the preceding input block, or null on the first call. */
     public synchronized float[] process(float[] monoPcm) throws OrtException {
